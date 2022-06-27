@@ -3,8 +3,8 @@
 
 from brian2 import *
 
-from model_files.global_vars_and_eqs import *
-from model_files.annex_functions import *
+from .global_vars_and_eqs import *
+from .annex_functions import *
 
 
 def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,co,co2,tau_Cl):

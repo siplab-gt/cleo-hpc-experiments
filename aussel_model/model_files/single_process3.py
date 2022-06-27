@@ -19,20 +19,22 @@ def nanzero(tableau1D):
     newtab[where(isnan(newtab))]=0
     return newtab
 
-
 def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek) :
+    net, all_neuron_groups, elec_pos = net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
+    return run(net, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
+
+def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False) :
     liste_params=[runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek]
     liste_params_names=['runtime', 'plot_raster','types','all_N','topo','co','co2','A0','A1','dur','f1','duty_cycle','input_type','all_p_intra','all_p_inter','all_gains','all_g_max_i','all_g_max_e','gCAN','save_sim_raster','save_neuron_pos','save_syn_mat','in_file_1','in_file_2','in_file_3','in_fs','tau_Cl','Ek']
 #    print(liste_params)
     save_params(liste_params,liste_params_names,path)
     print('Simulations parameters saved')
+
+    p_in=0.05
+    p_in  # probability of input connectivity, used in setting up synapses below in this function
     
     print('Generating neurons positions')
     
-    pas_de_temps=defaultclock.dt 
-    p_in=0.05
-    debut=time.time()
-    bis=False
     #    version='_'+str(ver)+input_num
 #    input_num=ord(input_num)-64
     if topo=='normal':
@@ -114,8 +116,6 @@ def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle
 #    print('positions generated')
     
 
-    nb_runs=int(10*runtime/second)
-
     start_scope()
     prefs.codegen.target = 'numpy'  # use the Python fallback
     
@@ -177,6 +177,32 @@ def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle
         if syn_intra!=0:
 #            print(syn_intra,syn_intra.source,syn_intra.target)
             myNetwork.add(syn_intra)
+#    return
+
+    global all_rasters_i_exc,all_rasters_i_inh,all_rasters_t_exc,all_rasters_t_inh
+    
+    all_rasters_i_exc=[[[] for i in range(types[0])] for j in range(4)]
+    all_rasters_t_exc=[[[] for i in range(types[0])] for j in range(4)]
+    all_rasters_i_inh=[[[] for i in range(types[1])] for j in range(4)]
+    all_rasters_t_inh=[[[] for i in range(types[1])] for j in range(4)]
+
+    return myNetwork, all_neuron_groups, elec_pos
+
+
+def run(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False):
+    pas_de_temps=defaultclock.dt 
+    debut=time.time()
+    nb_runs=int(10*runtime/second)
+
+    print('Generating neurons positions')
+    if topo=='normal':
+        all_pos, elec_pos=topologie(types,all_N)
+    else :
+        all_pos, elec_pos=topologie_rectangle(types,all_N)
+        
+
+    all_FR_exc=[[[] for i in range(types[0])] for j in range(4)]
+    all_FR_inh=[[[] for i in range(types[1])] for j in range(4)]
     single_runtime=runtime/nb_runs
     signal_principal=zeros(int(runtime/pas_de_temps))
     isyn_EC_e1=zeros(int(runtime/pas_de_temps))
@@ -216,17 +242,6 @@ def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle
         isyn_DG_i2_bis=zeros(int(runtime/pas_de_temps))
         isyn_CA3_i2_bis=zeros(int(runtime/pas_de_temps))
         isyn_CA1_i2_bis=zeros(int(runtime/pas_de_temps))        
-#    return
-
-    global all_rasters_i_exc,all_rasters_i_inh,all_rasters_t_exc,all_rasters_t_inh
-    
-    all_rasters_i_exc=[[[] for i in range(types[0])] for j in range(4)]
-    all_rasters_t_exc=[[[] for i in range(types[0])] for j in range(4)]
-    all_rasters_i_inh=[[[] for i in range(types[1])] for j in range(4)]
-    all_rasters_t_inh=[[[] for i in range(types[1])] for j in range(4)]
-
-    all_FR_exc=[[[] for i in range(types[0])] for j in range(4)]
-    all_FR_inh=[[[] for i in range(types[1])] for j in range(4)]
 
     for test_ind in range(nb_runs):
 #        print(test_ind,single_runtime)

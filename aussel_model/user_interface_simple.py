@@ -11,9 +11,10 @@ from brian2 import *
 import os
 import datetime
 
-from model_files.global_vars_and_eqs import *
-from model_files.single_process import *
-from model_files.annex_functions import *
+from .model_files.global_vars_and_eqs import *
+from .model_files.single_process3 import *
+# from .model_files.single_process import *
+from .model_files.annex_functions import *
 
 
 os.environ['MKL_NUM_THREADS'] = '1'
@@ -205,7 +206,7 @@ def start():
     else :
         save_all_FR=False
     
-    interface.destroy()
+    interface.quit()
     start_scope()
     
     path=''
@@ -472,18 +473,23 @@ b1.place(x=800,y=490)
 save_all_FR.set('False')   
 
 
+def save_plots():
+    if not aborted : 
+        simu=lecture(path+'/LFP.txt')[0]
+        figure()
+        plot(simu)
+        # show()
+        
+        if save_figs:
+            print("Saving figures")
+            os.mkdir(path+'/figures')
+            for i in get_fignums():
+                current_fig=figure(i)
+                current_fig.savefig(path+'/figures/figure'+str(i)+'.png')
 
-interface.mainloop()
 
-if not aborted : 
-    simu=lecture(path+'/LFP.txt')[0]
-    figure()
-    plot(simu)
-    show()
-    
-    if save_figs:
-        os.mkdir(path+'/figures')
-        for i in get_fignums():
-            current_fig=figure(i)
-            current_fig.savefig(path+'/figures/figure'+str(i)+'.png')
+if __name__ == '__main__':
+    interface.mainloop()
+
+    save_plots()
 
