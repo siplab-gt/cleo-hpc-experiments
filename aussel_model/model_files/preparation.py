@@ -183,7 +183,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_CAN_eqs_curr,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
+        G_exc=NeuronGroup(N_exc,py_CAN_eqs_curr,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method, namespace={'inputs1': inputs1})
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -232,7 +232,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
             return
         G_inh_coords=coord
         Ninh=len(coord[:,0])
-        G_inh=NeuronGroup(Ninh,inh_eqs_curr,threshold='v>V_th',refractory=3*ms,method=integ_method)
+        G_inh=NeuronGroup(Ninh,inh_eqs_curr,threshold='v>V_th',refractory=3*ms,method=integ_method, namespace={'inputs1': inputs1})
         G_inh.v = -60*mvolt-rand()*10*mvolt
         G_inh.x_soma=G_inh_coords[:,0]*scale
         G_inh.y_soma=G_inh_coords[:,1]*scale

@@ -14,16 +14,19 @@ import datetime
 import os
 
 
+pas_de_temps=defaultclock.dt 
+
+
 def nanzero(tableau1D):
     newtab=array(tableau1D)
     newtab[where(isnan(newtab))]=0
     return newtab
 
 def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek) :
-    net, all_neuron_groups, elec_pos = net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
-    return run(net, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
+    net, all_neuron_groups, all_pos, elec_pos = net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
+    return run_process(net, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
 
-def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False) :
+def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False, plot_topo=False) :
     liste_params=[runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek]
     liste_params_names=['runtime', 'plot_raster','types','all_N','topo','co','co2','A0','A1','dur','f1','duty_cycle','input_type','all_p_intra','all_p_inter','all_gains','all_g_max_i','all_g_max_e','gCAN','save_sim_raster','save_neuron_pos','save_syn_mat','in_file_1','in_file_2','in_file_3','in_fs','tau_Cl','Ek']
 #    print(liste_params)
@@ -38,7 +41,7 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     #    version='_'+str(ver)+input_num
 #    input_num=ord(input_num)-64
     if topo=='normal':
-        all_pos, elec_pos=topologie(types,all_N)
+        all_pos, elec_pos=topologie(types,all_N, plot_topo=plot_topo)
     else :
         all_pos, elec_pos=topologie_rectangle(types,all_N)
         
@@ -138,9 +141,10 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     
     if input_type=='custom':
 #        print('input reel')
-        In_exc1=NeuronGroup(10000, 'rates : Hz', threshold='rand()<inputs1(t)*pas_de_temps')    #dt ? record_dt ?
-        In_exc2=NeuronGroup(10000, 'rates : Hz', threshold='rand()<inputs2(t)*pas_de_temps')    #dt ? record_dt ? 
-        In_exc3=NeuronGroup(10000, 'rates : Hz', threshold='rand()<inputs3(t)*pas_de_temps')    #dt ? record_dt ?    
+        # need to include input in namespace so it gets picked up in separate function
+        In_exc1=NeuronGroup(10000, 'rates : Hz', threshold='rand()<inputs1(t)*pas_de_temps', namespace={'inputs1': inputs1})    #dt ? record_dt ?
+        In_exc2=NeuronGroup(10000, 'rates : Hz', threshold='rand()<inputs2(t)*pas_de_temps', namespace={'inputs2': inputs2})    #dt ? record_dt ? 
+        In_exc3=NeuronGroup(10000, 'rates : Hz', threshold='rand()<inputs3(t)*pas_de_temps', namespace={'inputs3': inputs3})    #dt ? record_dt ?    
         myNetwork.add([In_exc1,In_exc2,In_exc3])
         for Gpy in all_neuron_groups[0][0]:
             S11 = Synapses(In_exc1, Gpy, on_pre='he_post+='+str(all_g_max_e[0]/siemens)+'*siemens')
@@ -189,16 +193,15 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     return myNetwork, all_neuron_groups, elec_pos
 
 
-def run(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False):
-    pas_de_temps=defaultclock.dt 
+def run_process(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False):
     debut=time.time()
     nb_runs=int(10*runtime/second)
 
-    print('Generating neurons positions')
-    if topo=='normal':
-        all_pos, elec_pos=topologie(types,all_N)
-    else :
-        all_pos, elec_pos=topologie_rectangle(types,all_N)
+    # print('Generating neurons positions')
+    # if topo=='normal':
+    #     all_pos, elec_pos=topologie(types,all_N)
+    # else :
+    #     all_pos, elec_pos=topologie_rectangle(types,all_N)
         
 
     all_FR_exc=[[[] for i in range(types[0])] for j in range(4)]
@@ -664,7 +667,7 @@ def run(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N
                 subplot(4,types[0]+types[1],j+1+(types[0]+types[1])*i)
                 title('raster '+zones[i]+' exc '+str(j))
                 for ind in range(len(all_rasters_t_exc[i][j])):
-                    plot(all_rasters_t_exc[i][j][ind]/msecond, all_rasters_i_exc[i][j][ind], '.r')
+                   plot(all_rasters_t_exc[i][j][ind]/msecond, all_rasters_i_exc[i][j][ind], '.r')
                 xlim(0,runtime/msecond)
                 ylim(0,all_N[i+4*j])
                 xlabel('Time (ms)')

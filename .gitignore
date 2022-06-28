@@ -1,3 +1,5 @@
 results*/*
 *.pyc
 *Zone.Identifier
+.vscode/*
+tmp/*

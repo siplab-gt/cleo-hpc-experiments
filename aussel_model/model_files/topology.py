@@ -5,7 +5,7 @@ from brian2 import *
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def topologie(types,all_N):   
+def topologie(types,all_N, plot_topo=False):   
         
     #Création de l'électrode
 #    depart_electrode=array([-21, 0, 50])
@@ -190,18 +190,19 @@ def topologie(types,all_N):
         all_pos[1]=[DG_e1,DG_e1_end,DG_e1_inh,DG_e2,DG_e2_end,DG_e2_inh,DG_i1,DG_i1_end,DG_i1_inh,DG_i2,DG_i2_end,DG_i2_inh]
         all_pos[2]=[CA3_e1,CA3_e1_end,CA3_e1_inh,CA3_e2,CA3_e2_end,CA3_e2_inh,CA3_i1,CA3_i1_end,CA3_i1_inh,CA3_i2,CA3_i2_end,CA3_i2_inh]
         all_pos[3]=[CA1_e1,CA1_e1_end,CA1_e1_inh,CA1_e2,CA1_e2_end,CA1_e2_inh,CA1_i1,CA1_i1_end,CA1_i1_inh,CA1_i2,CA1_i2_end,CA1_i2_inh]
-#
-#    figure(figsize=(10,8))
-#    subplot(111, projection='3d')
-#    couleurs_exc=['k','r','g','b']
-#    couleurs_inh=['w','m','y','c']
-#    for region in range(3,-1,-1):
-#        for n_exc in range(types[0]):
-#            plot(all_pos[region][3*n_exc][:,0],all_pos[region][3*n_exc][:,1],all_pos[region][3*n_exc][:,2],'o',color=couleurs_exc[region])
-#        for n_inh in range(types[1]):
-#            plot(all_pos[region][3*types[0]+3*n_inh][:,0],all_pos[region][3*types[0]+3*n_inh][:,1],all_pos[region][3*types[0]+3*n_inh][:,2],'o',color=couleurs_inh[region])    
-#    plot(elec_array[:,0],elec_array[:,1],elec_array[:,2],'y+')
-#    print(elec[0],elec[-1])
+
+    if plot_topo:
+        figure(figsize=(10,8))
+        subplot(111, projection='3d')
+        couleurs_exc=['k','r','g','b']
+        couleurs_inh=['w','m','y','c']
+        for region in range(3,-1,-1):
+            for n_exc in range(types[0]):
+                plot(all_pos[region][3*n_exc][:,0],all_pos[region][3*n_exc][:,1],all_pos[region][3*n_exc][:,2],'o',color=couleurs_exc[region])
+            for n_inh in range(types[1]):
+                plot(all_pos[region][3*types[0]+3*n_inh][:,0],all_pos[region][3*types[0]+3*n_inh][:,1],all_pos[region][3*types[0]+3*n_inh][:,2],'o',color=couleurs_inh[region])    
+        plot(elec_array[:,0],elec_array[:,1],elec_array[:,2],'y+')
+        # print(elec[0],elec[-1])
     return(all_pos, elec_array) 
     
     

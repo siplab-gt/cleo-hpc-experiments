@@ -81,7 +81,7 @@ in_file_3 = StringVar()
 aborted=True
 
 
-def start():
+def get_process_params():
     global runtime,plot_raster,gCAN,maxN,A0,A1,dur,f1,duty,input_type,ptri,pmono,gains,g_max_i,g_max_e,save_figs,save_raster,save_neuron_pos,save_syn_mat,path,save_all_FR,tau_Cl,Ek,in_file_1,in_file_2,in_file_3,in_fs,aborted,functional_co,gCAN,CAN,sclerosis,sprouting
     
     if CAN.get()=='sleep': #no CAN
@@ -221,8 +221,13 @@ def start():
     os.mkdir(path)
     
 #    process(runtime,plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_raster,save_neuron_pos,save_syn_mat,path) 
-    res_1024, all_FR_exc,all_FR_inh=process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek) 
+    return (runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek) 
 
+
+
+def start():
+    params = get_process_params()
+    res_1024, all_FR_exc,all_FR_inh=process(*params) 
     aborted=False
     return
 
@@ -478,6 +483,7 @@ def save_plots():
         simu=lecture(path+'/LFP.txt')[0]
         figure()
         plot(simu)
+        title("Original simulation LFP (Mazzoni-Linden weighted sum)")
         # show()
         
         if save_figs:
