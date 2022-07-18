@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aussel_model"
+version = "0.0.0"
+dependencies = []
+
+[project.scripts]
+aussel_gui = "aussel_model.interface.user_interface_simple:main"

@@ -8,10 +8,10 @@ from joblib import Parallel, delayed
 import multiprocessing
 import os
 
-from model_files.global_vars_and_eqs import *
-from model_files.single_process import *
-from model_files.annex_functions import *
-from model_files.set_vars_and_process import *
+from .global_vars_and_eqs import *
+from .single_process import *
+from .annex_functions import *
+from .set_vars_and_process import *
 
 
 os.environ['MKL_NUM_THREADS'] = '1'

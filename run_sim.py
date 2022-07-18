@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 
 import matplotlib.pyplot as plt
@@ -7,9 +8,10 @@ from brian2 import Network, mm, ms
 
 import cleosim
 from cleosim.electrodes import Probe, TKLFPSignal
+from cleosim import opto
 
-from aussel_model.model_files import single_process3 as sp3
-from aussel_model import user_interface_simple as uis
+from aussel_model.model import single_process3 as sp3
+from aussel_model.interface import user_interface_simple as uis
 
 
 def main(args):
@@ -33,10 +35,17 @@ def main(args):
         # with the average orientation for the exc neurons in each region
         sim.inject_recorder(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
+    op_int = opto.OptogeneticIntervention(
+        'opto',
+        opto.FourStateModel(opto.ChR2_four_state),
+        opto.default_blue,
+        (3, -3, 7.5)*mm,
+        (-1, 0, 0)
+    )
 
     if args.viz:
         cleosim.visualization.plot(
-            *all_ngs_exc, *all_ngs_inh, invert_z=False, devices_to_plot=[probe]
+            *all_ngs_exc, *all_ngs_inh, invert_z=False, devices_to_plot=[probe, op_int]
         )
 
     print(f"Setup time: {(time.time()-setup_start)} seconds")
@@ -44,7 +53,7 @@ def main(args):
     sp3.run_process(net, all_ngs, elec_pos, *params)
 
     plot_lfp(lfp)
-    plot_input(path=params[23])
+    plot_input(path=params[23], op_int=op_int)
 
     uis.aborted = False
     uis.save_plots()
@@ -85,13 +94,19 @@ def plot_lfp(lfp: TKLFPSignal):
     plt.xlabel("ms")
 
 
-def plot_input(path):
-    pass
+def plot_input(path, op_int):
+    npzfile = np.load(os.path.join(path, 'input.npz'))
+    t_s, inputs1 = [npzfile[v] for v in ['t_s', 'inputs1']]
+    plt.figure()
+    plt.title('Input')
+    plt.plot(t_s, inputs1, label='endogenous input')
+    plt.figure()
 
 
 def setup_aussel_net(args) -> Network:
     uis.maxN.set(args.maxN)
     uis.runtime.set(args.runtime)
+    uis.f1.set(args.f1)
     if args.smoke:
         uis.maxN.set(500)
         uis.runtime.set(0.01)
@@ -121,6 +136,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--runtime", type=float, default=0.5, help="Duration of the simulation (s)"
+    )
+    parser.add_argument(
+        "--f1", type=float, default=2.5, help="Input frequency (Hz)"
     )
     parser.add_argument(
         "--save_neuron_pos",

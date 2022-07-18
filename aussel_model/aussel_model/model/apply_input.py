@@ -57,14 +57,19 @@ def normalize(sig1,sig2,sig3,record_dt,maxFR):
         sig3=TimedArray(sig3*Hz,dt=record_dt) 
         return sig1,sig2,sig3
     
-def timedarray2array(t_array,tmax,dt):
+def timedarray2array(t_array,tmax,dt, return_t=False):
     t,ind=0*second,0
+    t_s = zeros(int(tmax/dt))
     res_array=zeros(int(tmax/dt))
     while ind < len(res_array) - 1:
+        t_s[ind] = t / second
         res_array[ind]=t_array(t)
         t+=dt
         ind+=1
-    return res_array
+    if return_t:
+        return t_s, res_array
+    else:
+        return res_array
 
 def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs):
     record_dt=1./1024 *second

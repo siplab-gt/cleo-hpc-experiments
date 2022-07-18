@@ -128,7 +128,8 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     inputs1,inputs2,inputs3=apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs)
 #    print(inputs1(500*msecond))
     if save_inputs:
-        np.save(os.path.join(path, 'inputs1.npy'), timedarray2array(inputs1, runtime, record_dt))
+        t_s, inputs1_arr = timedarray2array(inputs1, runtime, record_dt, return_t=True)
+        np.savez_compressed(os.path.join(path, 'input.npz'), t_s=t_s, inputs1=inputs1_arr)
     
     print('Building the network')    
     myNetwork=Network()         

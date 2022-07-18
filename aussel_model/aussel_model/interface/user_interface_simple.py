@@ -11,10 +11,10 @@ from brian2 import *
 import os
 import datetime
 
-from .model_files.global_vars_and_eqs import *
-from .model_files.single_process3 import *
+from aussel_model.model.global_vars_and_eqs import *
+from aussel_model.model.single_process3 import *
 # from .model_files.single_process import *
-from .model_files.annex_functions import *
+from aussel_model.model.annex_functions import *
 
 
 os.environ['MKL_NUM_THREADS'] = '1'
@@ -494,8 +494,10 @@ def save_plots():
                 current_fig.savefig(path+'/figures/figure'+str(i)+'.png')
 
 
-if __name__ == '__main__':
+def main():
     interface.mainloop()
-
     save_plots()
 
+
+if __name__ == '__main__':
+    main()

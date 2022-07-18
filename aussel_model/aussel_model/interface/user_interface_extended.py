@@ -11,9 +11,9 @@ from brian2 import *
 import os
 import datetime
 
-from model_files.global_vars_and_eqs import *
-from model_files.single_process import *
-from model_files.annex_functions import *
+from model.global_vars_and_eqs import *
+from model.single_process import *
+from model.annex_functions import *
 
 
 os.environ['MKL_NUM_THREADS'] = '1'

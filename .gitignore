@@ -3,3 +3,4 @@ results*/*
 *Zone.Identifier
 .vscode/*
 tmp/*
+**/*.egg-info/*
