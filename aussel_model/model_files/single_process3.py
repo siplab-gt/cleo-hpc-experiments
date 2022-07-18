@@ -23,10 +23,10 @@ def nanzero(tableau1D):
     return newtab
 
 def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek) :
-    net, all_neuron_groups, all_pos, elec_pos = net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
+    net, all_neuron_groups, elec_pos = net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
     return run_process(net, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
 
-def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False, plot_topo=False) :
+def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False, plot_topo=False, save_inputs=True):
     liste_params=[runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek]
     liste_params_names=['runtime', 'plot_raster','types','all_N','topo','co','co2','A0','A1','dur','f1','duty_cycle','input_type','all_p_intra','all_p_inter','all_gains','all_g_max_i','all_g_max_e','gCAN','save_sim_raster','save_neuron_pos','save_syn_mat','in_file_1','in_file_2','in_file_3','in_fs','tau_Cl','Ek']
 #    print(liste_params)
@@ -127,6 +127,8 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     print('Generating the inputs')
     inputs1,inputs2,inputs3=apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs)
 #    print(inputs1(500*msecond))
+    if save_inputs:
+        np.save(os.path.join(path, 'inputs1.npy'), timedarray2array(inputs1, runtime, record_dt))
     
     print('Building the network')    
     myNetwork=Network()         

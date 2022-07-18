@@ -59,8 +59,8 @@ def normalize(sig1,sig2,sig3,record_dt,maxFR):
     
 def timedarray2array(t_array,tmax,dt):
     t,ind=0*second,0
-    res_array=zeros((int(tmax/dt),1))
-    while t<tmax:
+    res_array=zeros(int(tmax/dt))
+    while ind < len(res_array) - 1:
         res_array[ind]=t_array(t)
         t+=dt
         ind+=1

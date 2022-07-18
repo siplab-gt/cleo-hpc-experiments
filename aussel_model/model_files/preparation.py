@@ -15,6 +15,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
     taille_exc_normale=29e3 * umetre ** 2
     taille_exc_2=0.5*taille_exc_normale
     
+    # this is the default with no option for other types in the simple interface:
     if types[0]==1 and types[1]==1:
         EC_e,EC_e_end,EC_e_inh,EC_i,EC_i_end,EC_i_inh=all_pos[0]
         DG_e,DG_e_end,DG_e_inh,DG_i,DG_i_end,DG_i_inh=all_pos[1]
@@ -63,7 +64,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_eqs,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
+        G_exc=NeuronGroup(N_exc,py_eqs,name=zone_name, threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -90,7 +91,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_CAN_eqs,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
+        G_exc=NeuronGroup(N_exc,py_CAN_eqs,name=zone_name, threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -116,7 +117,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_stim_eqs,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
+        G_exc=NeuronGroup(N_exc,py_stim_eqs,name=zone_name, threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -139,7 +140,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
             return
         G_inh_coords=coord
         Ninh=len(coord[:,0])
-        G_inh=NeuronGroup(Ninh,inh_eqs,threshold='v>V_th',refractory=3*ms,method=integ_method)
+        G_inh=NeuronGroup(Ninh,inh_eqs,name=zone_name, threshold='v>V_th',refractory=3*ms,method=integ_method)
         G_inh.v = -60*mvolt-rand()*10*mvolt
         G_inh.x_soma=G_inh_coords[:,0]*scale
         G_inh.y_soma=G_inh_coords[:,1]*scale
@@ -156,7 +157,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_eqs_curr,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
+        G_exc=NeuronGroup(N_exc,py_eqs_curr,name=zone_name, threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -183,7 +184,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_CAN_eqs_curr,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method, namespace={'inputs1': inputs1})
+        G_exc=NeuronGroup(N_exc,py_CAN_eqs_curr,name=zone_name, threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method, namespace={'inputs1': inputs1})
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -209,7 +210,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         G_exc_Dcoords=Dcoord
         G_exc_Icoords=Icoord
         G_exc_dir=direction
-        G_exc=NeuronGroup(N_exc,py_stim_eqs_curr,threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
+        G_exc=NeuronGroup(N_exc,py_stim_eqs_curr,name=zone_name, threshold='v>V_th',reset=reset_eqs,refractory=3*ms,method=integ_method)
         G_exc.v = '-60*mvolt-rand()*10*mvolt'
         G_exc.glu = 1
         G_exc.x_soma=G_exc_coords[:,0]*scale
@@ -232,7 +233,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
             return
         G_inh_coords=coord
         Ninh=len(coord[:,0])
-        G_inh=NeuronGroup(Ninh,inh_eqs_curr,threshold='v>V_th',refractory=3*ms,method=integ_method, namespace={'inputs1': inputs1})
+        G_inh=NeuronGroup(Ninh,inh_eqs_curr,name=zone_name, threshold='v>V_th',refractory=3*ms,method=integ_method, namespace={'inputs1': inputs1})
         G_inh.v = -60*mvolt-rand()*10*mvolt
         G_inh.x_soma=G_inh_coords[:,0]*scale
         G_inh.y_soma=G_inh_coords[:,1]*scale
@@ -244,17 +245,17 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
     
     if types[0]==1 and types[1]==1:
         if input_type=='courant_sin' or input_type=='courant_creneau' or input_type=='courant_blanc' or input_type=='square':
-            EC_py=create_group_pyCAN_curr('EC',EC_e,EC_e_end,EC_e_inh,dir_EC,taille_exc_normale)
-            EC_inh=create_group_inh_curr('EC',EC_i,taille_inh_normale)
+            EC_py=create_group_pyCAN_curr('EC_exc',EC_e,EC_e_end,EC_e_inh,dir_EC,taille_exc_normale)
+            EC_inh=create_group_inh_curr('EC_inh',EC_i,taille_inh_normale)
         else:
-            EC_py=create_group_pyCAN('EC',EC_e,EC_e_end,EC_e_inh,dir_EC,taille_exc_normale)
-            EC_inh=create_group_inh('EC',EC_i,taille_inh_normale)
-        DG_py=create_group_py('DG',DG_e,DG_e_end,DG_e_inh,dir_DG,taille_exc_normale)
-        DG_inh=create_group_inh('DG',DG_i,taille_inh_normale)
-        CA3_py=create_group_pyCAN('CA3',CA3_e,CA3_e_end,CA3_e_inh,dir_CA3,taille_exc_normale)
-        CA3_inh=create_group_inh('CA3',CA3_i,taille_inh_normale)
-        CA1_py=create_group_pyCAN('CA1',CA1_e,CA1_e_end,CA1_e_inh,dir_CA1,taille_exc_normale)
-        CA1_inh=create_group_inh('CA1',CA1_i,taille_inh_normale)
+            EC_py=create_group_pyCAN('EC_exc',EC_e,EC_e_end,EC_e_inh,dir_EC,taille_exc_normale)
+            EC_inh=create_group_inh('EC_inh',EC_i,taille_inh_normale)
+        DG_py=create_group_py('DG_exc',DG_e,DG_e_end,DG_e_inh,dir_DG,taille_exc_normale)
+        DG_inh=create_group_inh('DG_inh',DG_i,taille_inh_normale)
+        CA3_py=create_group_pyCAN('CA3_exc',CA3_e,CA3_e_end,CA3_e_inh,dir_CA3,taille_exc_normale)
+        CA3_inh=create_group_inh('CA3_inh',CA3_i,taille_inh_normale)
+        CA1_py=create_group_pyCAN('CA1_exc',CA1_e,CA1_e_end,CA1_e_inh,dir_CA1,taille_exc_normale)
+        CA1_inh=create_group_inh('CA1_inh',CA1_i,taille_inh_normale)
         all_EC_py,all_EC_inh=[EC_py],[EC_inh]
         all_DG_py,all_DG_inh=[DG_py],[DG_inh]
         all_CA3_py,all_CA3_inh=[CA3_py],[CA3_inh]

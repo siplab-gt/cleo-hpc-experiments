@@ -13,14 +13,14 @@ def make_flat(liste):
             new_liste.append(elem)
     return new_liste
 
-def timedarray2array(t_array,tmax,dt):
-    t,ind=0*second,0
-    res_array=zeros((int(tmax/dt),1))
-    while t<tmax:
-        res_array[ind]=t_array(t)
-        t+=dt
-        ind+=1
-    return res_array
+# def timedarray2array(t_array,tmax,dt):
+#     t,ind=0*second,0
+#     res_array=zeros((int(tmax/dt),1))
+#     while t<tmax:
+#         res_array[ind]=t_array(t)
+#         t+=dt
+#         ind+=1
+#     return res_array
     
 def send_file(liste_fichiers,sprouting,lesion,cell_loss):
     import smtplib
