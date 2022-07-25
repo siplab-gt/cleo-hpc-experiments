@@ -12,11 +12,13 @@ from cleosim import opto
 
 from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
+from plot_results import plot_input, plot_lfp
 
 
 def main(args):
     setup_start = time.time()
     (net, all_ngs, elec_pos), params = setup_aussel_net(args)
+    path = params[23]
     all_ngs_exc = [area[0][0] for area in all_ngs]
     all_ngs_inh = [area[1][0] for area in all_ngs]
 
@@ -35,25 +37,41 @@ def main(args):
         # with the average orientation for the exc neurons in each region
         sim.inject_recorder(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
+    light_params = opto.default_blue
+    light_params["R0"] = 0.2 * mm  # bigger fiber radius
     op_int = opto.OptogeneticIntervention(
-        'opto',
+        "opto",
         opto.FourStateModel(opto.ChR2_four_state),
-        opto.default_blue,
-        (3, -3, 7.5)*mm,
-        (-1, 0, 0)
+        light_params,
+        (3, -4, 7.5) * mm,
+        (-1, 0, 0),
+        save_history=True,
     )
+    sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name="Iopto")
 
+    colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
+    colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
+    colors = colors_exc + colors_inh
     if args.viz:
         cleosim.visualization.plot(
-            *all_ngs_exc, *all_ngs_inh, invert_z=False, devices_to_plot=[probe, op_int]
+            *all_ngs_exc,
+            *all_ngs_inh,
+            zlim=(6.5, 9),
+            colors=colors,
+            invert_z=False,
+            devices=[(probe, {"size": 15, "color": (0.1, 0.1, 0.1, 0.5)}), op_int],
+            scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
+            figsize=(3, 4),
         )
 
     print(f"Setup time: {(time.time()-setup_start)} seconds")
 
     sp3.run_process(net, all_ngs, elec_pos, *params)
 
-    plot_lfp(lfp)
-    plot_input(path=params[23], op_int=op_int)
+    save_lfp(path, lfp)
+    plot_lfp(path)
+    save_input(path, op_int)
+    plot_input(path)
 
     uis.aborted = False
     uis.save_plots()
@@ -82,25 +100,22 @@ def orntn_for_ng(ng):
     return xyz_dendrite - xyz_soma
 
 
-def plot_lfp(lfp: TKLFPSignal):
+def save_lfp(path, lfp: TKLFPSignal):
     # imitate method from Aussel 2018: take average signal from one cylinder
     # of contacts and subtract from the other
     lfp1 = lfp.lfp_uV[:, :144].mean(axis=1)
     lfp2 = lfp.lfp_uV[:, 144:288].mean(axis=1)
-    plt.figure()
-    plt.plot(lfp2 - lfp1)
-    plt.title("TKLFP")
-    plt.ylabel("$\mu$V")
-    plt.xlabel("ms")
+    fname = os.path.join(path, "tklfp.npy")
+    np.save(fname, lfp2 - lfp1)
 
 
-def plot_input(path, op_int):
-    npzfile = np.load(os.path.join(path, 'input.npz'))
-    t_s, inputs1 = [npzfile[v] for v in ['t_s', 'inputs1']]
-    plt.figure()
-    plt.title('Input')
-    plt.plot(t_s, inputs1, label='endogenous input')
-    plt.figure()
+def save_input(path, op_int: opto.OptogeneticIntervention):
+    fname = os.path.join(path, "input.npz")
+    npzfile = np.load(fname)
+    Irr0_mW_per_mm2 = np.array(op_int.values)
+    np.savez_compressed(
+        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=op_int.t_ms, **npzfile
+    )
 
 
 def setup_aussel_net(args) -> Network:
@@ -137,9 +152,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--runtime", type=float, default=0.5, help="Duration of the simulation (s)"
     )
-    parser.add_argument(
-        "--f1", type=float, default=2.5, help="Input frequency (Hz)"
-    )
+    parser.add_argument("--f1", type=float, default=2.5, help="Input frequency (Hz)")
     parser.add_argument(
         "--save_neuron_pos",
         action="store_true",
@@ -175,4 +188,5 @@ if __name__ == "__main__":
     # parser.add_argument("--out_dir", required=True, help="Output directory with trained model")
 
     args = parser.parse_args()
-    main(args)
+    with plt.style.context("seaborn-paper"):
+        main(args)

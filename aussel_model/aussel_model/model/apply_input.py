@@ -61,7 +61,7 @@ def timedarray2array(t_array,tmax,dt, return_t=False):
     t,ind=0*second,0
     t_s = zeros(int(tmax/dt))
     res_array=zeros(int(tmax/dt))
-    while ind < len(res_array) - 1:
+    while ind < len(res_array):
         t_s[ind] = t / second
         res_array[ind]=t_array(t)
         t+=dt
@@ -93,12 +93,13 @@ def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,i
         T1=int(2*int(1/f1/record_dt)*duty_cycle)
         T2=int(2*int(1/f1/record_dt)*(1-duty_cycle))
         in_1=array([0.]*int(runtime/record_dt))
-        deb=int(250*msecond/record_dt)
+        t_start = 100*ms
+        deb=int(t_start/record_dt)
         count=1
         T=T1
 #        print(deb,T,len(in_1), A0, A1)
 
-        while deb+T<=int((250*msecond+dur)/record_dt):
+        while deb+T<=int((t_start+dur)/record_dt):
             if count==0:
                 in_1[deb:deb+T]=A0
             else :
@@ -110,7 +111,7 @@ def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,i
                 T=T2
             else :
                 T=T1
-        in_1[deb:int((250*msecond+dur)/record_dt)]=A0*int(count==0)+A1*int(count==1)
+        in_1[deb:int((t_start+dur)/record_dt)]=A0*int(count==0)+A1*int(count==1)
 #        figure()
 #        plot(in_1)
         inputs1=TimedArray(in_1*namp,dt=record_dt)

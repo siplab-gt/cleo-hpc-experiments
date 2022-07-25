@@ -79,7 +79,7 @@ inh_eqs_curr = '''
     #valeurs prises pour le compartiment somatique. d=ratio vlume ext/volume int = 10 au pif, K_i=130mM pris dans un autre article
     
 py_CAN_eqs_curr = '''
-    dv/dt = ( - I_CAN - I_M - I_leak - I_K - I_Na - I_Ca - I_SynE - I_SynExt - I_SynI - I_SynHipp + noise_amp +r_noise*randn() + I_exc) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
+    dv/dt = ( - I_CAN - I_M - I_leak - I_K - I_Na - I_Ca - I_SynE - I_SynExt - I_SynI - I_SynHipp + noise_amp +r_noise*randn() + I_exc + Iopto) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
     Vm =( - I_CAN - I_M - I_leak - I_K - I_Na - I_Ca) / ((1 * ufarad * cm ** -2) * (taille))*pas_de_temps : volt 
     I_CAN =  ((gCAN) * (taille)) * mCAN ** 2 * (v - (-20 * mV)) : amp
         dmCAN/dt = (mCANInf - mCAN) / mCANTau : 1
@@ -141,6 +141,7 @@ py_CAN_eqs_curr = '''
     dir_y:1
     dir_z:1
     I_exc=inputs1(t)*int(z_soma<100*scale)*int(z_soma>0*scale):amp
+    Iopto : amp
     taille:metre ** 2
     '''
     
