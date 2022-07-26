@@ -25,7 +25,7 @@ def main(args):
     assign_coords(all_ngs)
     sim = cleosim.CLSimulator(net)
 
-    sim.set_io_processor(cleosim.processing.RecordOnlyProcessor(1))
+    config_processor(args, sim)
 
     lfp = TKLFPSignal("lfp", save_history=True)
     # use same electrode coordinates, with the same 150um scale
@@ -47,22 +47,10 @@ def main(args):
         (-1, 0, 0),
         save_history=True,
     )
-    sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name="Iopto")
+    if args.mode != 'orig':
+        sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name="Iopto")
 
-    colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
-    colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
-    colors = colors_exc + colors_inh
-    if args.viz:
-        cleosim.visualization.plot(
-            *all_ngs_exc,
-            *all_ngs_inh,
-            zlim=(6.5, 9),
-            colors=colors,
-            invert_z=False,
-            devices=[(probe, {"size": 15, "color": (0.1, 0.1, 0.1, 0.5)}), op_int],
-            scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
-            figsize=(3, 4),
-        )
+    plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int)
 
     print(f"Setup time: {(time.time()-setup_start)} seconds")
 
@@ -77,6 +65,39 @@ def main(args):
     uis.save_plots()
     if args.show_plots:
         plt.show()
+
+
+def config_processor(args, sim):
+    dt_ms = 1
+    t_start_ms = 100
+    t_stop_ms = 300
+    if args.mode == "orig":
+        sim.set_io_processor(cleosim.processing.RecordOnlyProcessor(dt_ms))
+    elif args.mode == "OL":
+        proc = cleosim.processing.LatencyIOProcessor(dt_ms)
+        def process(self, state, t_ms):
+            if t_start_ms <= t_ms < t_stop_ms:
+                opto_val = args.Aopto
+        proc.process = lambda state, t: {'opto': }
+
+        ...
+
+
+def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int):
+    colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
+    colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
+    colors = colors_exc + colors_inh
+    if args.viz:
+        cleosim.visualization.plot(
+            *all_ngs_exc,
+            *all_ngs_inh,
+            zlim=(6.5, 9),
+            colors=colors,
+            invert_z=False,
+            devices=[(probe, {"size": 15, "color": (0.1, 0.1, 0.1, 0.5)}), op_int],
+            scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
+            figsize=(3, 4),
+        )
 
 
 def assign_coords(all_ngs):
@@ -127,6 +148,8 @@ def setup_aussel_net(args) -> Network:
         uis.runtime.set(0.01)
     if args.save_neuron_pos:
         uis.save_neuron_pos.set("True")
+    if args.mode != "orig":
+        uis.A1.set(0)
 
     params = uis.get_process_params()
     return sp3.net_setup(*params, plot_topo=args.plot_topo), params
@@ -141,6 +164,18 @@ if __name__ == "__main__":
         default=False,
         help="Run a short smoke test (set maxN to 500 and runtime to 0.01 s)",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="orig",
+        help="Select experiment mode: orig, OL, CL, or fit",
+    )
+    parser.add_argument(
+        "--Irr0_OL",
+        type=float,
+        default=0,
+        help="Irradiance (mW/mm^2) for constant open-loop photostimulation"
+    )
 
     # args from original interface
     parser.add_argument(
@@ -153,6 +188,12 @@ if __name__ == "__main__":
         "--runtime", type=float, default=0.5, help="Duration of the simulation (s)"
     )
     parser.add_argument("--f1", type=float, default=2.5, help="Input frequency (Hz)")
+    parser.add_argument(
+        "--A1",
+        type=float,
+        default=1,
+        help="Max current (nA) of model's square wave input",
+    )
     parser.add_argument(
         "--save_neuron_pos",
         action="store_true",
