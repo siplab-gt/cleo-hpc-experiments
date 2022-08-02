@@ -4,3 +4,4 @@ results*/*
 .vscode/*
 tmp/*
 **/*.egg-info/*
+fit_results*

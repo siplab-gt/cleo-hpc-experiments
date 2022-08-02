@@ -480,10 +480,13 @@ save_all_FR.set('False')
 
 def save_plots():
     if not aborted : 
-        simu=lecture(path+'/LFP.txt')[0]
-        figure()
-        plot(simu)
-        title("Original simulation LFP (Mazzoni-Linden weighted sum)")
+        try:
+            simu=lecture(path+'/LFP.txt')[0]
+            figure()
+            plot(simu)
+            title("Original simulation LFP (Mazzoni-Linden weighted sum)")
+        except FileNotFoundError:
+            pass
         # show()
         
         if save_figs:
@@ -492,6 +495,7 @@ def save_plots():
             for i in get_fignums():
                 current_fig=figure(i)
                 current_fig.savefig(path+'/figures/figure'+str(i)+'.png')
+                current_fig.savefig(path+'/figures/figure'+str(i)+'.svg')
 
 
 def main():

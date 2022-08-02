@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_lfp(path):
-    lfp = np.load(os.path.join(path, 'tklfp.npy'))
+    lfp = np.load(os.path.join(path, "tklfp.npy"))
     plt.figure()
     plt.plot(lfp)
     plt.title("TKLFP")
@@ -16,12 +16,12 @@ def plot_lfp(path):
 
 
 def plot_input(path):
-    npz = np.load(os.path.join(path, 'input.npz'))
+    npz = np.load(os.path.join(path, "input.npz"))
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    ax1.plot(npz['t_s'], npz['inputs1'])
-    ax1.set(title='endogenous input')
-    ax2.plot(npz['t_opto_ms'], npz['Irr0_mW_per_mm2'])
-    ax2.set(title='optogenetic input')
+    ax1.plot(npz["t_s"]*1000, npz["inputs1"])
+    ax1.set(title="external current", ylabel="$I_{ext}$ (nA)")
+    ax2.step(npz["t_opto_ms"], npz["Irr0_mW_per_mm2"], where='post')
+    ax2.set(title="optogenetic input", xlabel="t (ms)", ylabel="$Irr_0$ (mW/mm$^2$)")
 
 
 # def main(args):
@@ -39,6 +39,7 @@ def plot_input(path):
 #     args = parser.parse_args()
 #     main(args)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     plot_lfp(sys.argv[1])
     plot_input(sys.argv[1])
+    plt.show()

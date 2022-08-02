@@ -120,7 +120,7 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     
 
     start_scope()
-    prefs.codegen.target = 'numpy'  # use the Python fallback
+    # prefs.codegen.target = 'numpy'  # use the Python fallback
     
     record_dt=1./1024 *second
 
@@ -168,8 +168,6 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
 #    else :
 #        print(all_neuron_groups[0][0][0].I_exc[:])
     #### Simultation #######
-    print('Compiling with cython')
-    prefs.codegen.target = 'cython' 
 #    print(all_neuron_groups)
     
    
@@ -197,8 +195,10 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
 
 
 def run_process(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False):
+    print(f'Brian target: {prefs.codegen.target}')
+
     debut=time.time()
-    nb_runs=int(10*runtime/second)
+    nb_runs=max(1, int(10*runtime/second))
 
     # print('Generating neurons positions')
     # if topo=='normal':

@@ -255,7 +255,7 @@ inh_eqs = '''
     #valeurs prises pour le compartiment somatique. d=ratio vlume ext/volume int = 10 au pif, K_i=130mM pris dans un autre article
     
 py_CAN_eqs = '''
-    dv/dt = ( - I_CAN - I_M - I_leak - I_K - I_Na - I_Ca - I_SynE - I_SynExt - I_SynI - I_SynHipp + noise_amp +r_noise*randn()) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
+    dv/dt = ( - I_CAN - I_M - I_leak - I_K - I_Na - I_Ca - I_SynE - I_SynExt - I_SynI - I_SynHipp + Iopto + noise_amp +r_noise*randn()) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
     Vm =( - I_CAN - I_M - I_leak - I_K - I_Na - I_Ca) / ((1 * ufarad * cm ** -2) * (taille))*pas_de_temps : volt 
     I_CAN =  ((gCAN) * (taille)) * mCAN ** 2 * (v - (-20 * mV)) : amp
         dmCAN/dt = (mCANInf - mCAN) / mCANTau : 1
@@ -293,7 +293,7 @@ py_CAN_eqs = '''
         dhe/dt=-he/(5*ms) : siemens
     I_SynExt = + ge_ext * (v - (0 * mV)) : amp
         dge_ext/dt = (-ge_ext+he_ext) * (1. / (0.3 * ms)) : siemens
-        dhe_ext/dt=-he_ext/(5*ms) : siemens          
+        dhe_ext/dt=-he_ext/(5*ms) : siemens
     I_SynHipp = + ge_hipp * (v - (0 * mV)) : amp
         dge_hipp/dt = (-ge_hipp+he_hipp) * (1. / (0.3 * ms)) : siemens
         dhe_hipp/dt=-he_hipp/(5*ms) : siemens
@@ -318,13 +318,14 @@ py_CAN_eqs = '''
     dir_y:1
     dir_z:1
     taille:metre ** 2
+    Iopto : amp
     '''
     
     
     #Pyramidal non CAN :
 
 py_eqs = '''
-    dv/dt = ( - I_M - I_leak - I_K - I_Na - I_Ca - I_SynE - I_SynExt - I_SynI - I_SynHipp + noise_amp +r_noise*randn()) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
+    dv/dt = ( - I_M - I_leak - I_K - I_Na - I_Ca - I_SynE - I_SynExt - I_SynI - I_SynHipp + Iopto + noise_amp +r_noise*randn()) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
     Vm=( - I_M - I_leak - I_K - I_Na - I_Ca) / ((1 * ufarad * cm ** -2) * (taille))*pas_de_temps : volt 
     I_M = ((gM) * (taille)) * p * (v - (-100*mV)) : amp
         dp/dt = (pInf - p) / pTau : 1
@@ -383,6 +384,7 @@ py_eqs = '''
     dir_y:1
     dir_z:1
     taille:metre ** 2
+    Iopto : amp
     ''' 
 
     

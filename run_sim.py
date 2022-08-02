@@ -4,7 +4,7 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from brian2 import Network, mm, ms
+from brian2 import Network, mm, ms, StateMonitor, prefs
 
 import cleosim
 from cleosim.electrodes import Probe, TKLFPSignal
@@ -17,6 +17,7 @@ from plot_results import plot_input, plot_lfp
 
 def main(args):
     setup_start = time.time()
+    prefs.codegen.target = args.target
     (net, all_ngs, elec_pos), params = setup_aussel_net(args)
     path = params[23]
     all_ngs_exc = [area[0][0] for area in all_ngs]
@@ -38,28 +39,34 @@ def main(args):
         sim.inject_recorder(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     light_params = opto.default_blue
-    light_params["R0"] = 0.2 * mm  # bigger fiber radius
+    light_params["R0"] = args.R0 * mm  # bigger fiber radius
     op_int = opto.OptogeneticIntervention(
         "opto",
         opto.FourStateModel(opto.ChR2_four_state),
         light_params,
-        (3, -4, 7.5) * mm,
-        (-1, 0, 0),
+        (2.5, -7, 7.5) * mm,
+        (-1, 1, 0),
         save_history=True,
+        max_Irr0_mW_per_mm2=args.maxIrr0,
     )
-    if args.mode != 'orig':
-        sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name="Iopto")
-
+    # sim.inject_stimulator(op_int, *all_ngs_exc, Iopto_var_name="Iopto")
+    sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name="Iopto")
+    # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
+    # sim.network.add(mon_Iopto)
     plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int)
 
     print(f"Setup time: {(time.time()-setup_start)} seconds")
 
-    sp3.run_process(net, all_ngs, elec_pos, *params)
+    if args.runtime > 0:
+        sp3.run_process(net, all_ngs, elec_pos, *params)
 
-    save_lfp(path, lfp)
-    plot_lfp(path)
-    save_input(path, op_int)
-    plot_input(path)
+        # fig, ax = plt.subplots()
+        # ax.plot(mon_Iopto.t, mon_Iopto.Iopto.T)
+
+        save_lfp(path, lfp)
+        plot_lfp(path)
+        save_input(path, op_int)
+        plot_input(path)
 
     uis.aborted = False
     uis.save_plots()
@@ -69,35 +76,57 @@ def main(args):
 
 def config_processor(args, sim):
     dt_ms = 1
-    t_start_ms = 100
+    t_start_ms = 0
     t_stop_ms = 300
-    if args.mode == "orig":
-        sim.set_io_processor(cleosim.processing.RecordOnlyProcessor(dt_ms))
-    elif args.mode == "OL":
-        proc = cleosim.processing.LatencyIOProcessor(dt_ms)
-        def process(self, state, t_ms):
-            if t_start_ms <= t_ms < t_stop_ms:
-                opto_val = args.Aopto
-        proc.process = lambda state, t: {'opto': }
 
-        ...
+    if args.mode == "orig":
+        # this is equivalent to the RecordOnlyProcessor
+        my_process = lambda state, t_ms: ({}, t_ms)
+    elif args.mode == "OL":
+
+        def my_process(state, t_ms):
+            if t_start_ms <= t_ms < t_stop_ms:
+                opto_val = args.Irr0_OL
+            else:
+                opto_val = 0
+            return {"opto": opto_val}, t_ms
+
+    elif args.mode == "fit":
+
+        def my_process(state, t_ms):
+            # one side of a normal distribution. Max is 3 st devs away
+            opto_val = np.abs(args.maxIrr0 / 3 * np.random.randn())
+            return {"opto": opto_val}, t_ms
+
+    elif args.mode == "CL":
+        pass
+
+    # need to subclass so it's concrete
+    class MyLIOP(cleosim.processing.LatencyIOProcessor):
+        def process(self, state, t_ms):
+            return my_process(state, t_ms)
+
+    proc = MyLIOP(dt_ms)
+    sim.set_io_processor(proc)
 
 
 def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int):
     colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
     colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
     colors = colors_exc + colors_inh
-    if args.viz:
-        cleosim.visualization.plot(
-            *all_ngs_exc,
-            *all_ngs_inh,
-            zlim=(6.5, 9),
-            colors=colors,
-            invert_z=False,
-            devices=[(probe, {"size": 15, "color": (0.1, 0.1, 0.1, 0.5)}), op_int],
-            scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
-            figsize=(3, 4),
-        )
+    fig, ax = cleosim.visualization.plot(
+        *all_ngs_exc,
+        *all_ngs_inh,
+        zlim=(6.5, 9),
+        colors=colors,
+        invert_z=False,
+        devices=[(probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}), (op_int, {'n_points': 1e5})],
+        scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
+        figsize=(3, 4),
+    )
+    ax.set(zticks=[7, 8, 9])
+    ax.view_init(60, -75)
+    ax.get_legend().remove()
 
 
 def assign_coords(all_ngs):
@@ -171,10 +200,28 @@ if __name__ == "__main__":
         help="Select experiment mode: orig, OL, CL, or fit",
     )
     parser.add_argument(
+        "--target",
+        type=str,
+        default="numpy",
+        help="brian2.prefs.codegen.target: numpy or cython",
+    )
+    parser.add_argument(
         "--Irr0_OL",
         type=float,
         default=0,
-        help="Irradiance (mW/mm^2) for constant open-loop photostimulation"
+        help="Irradiance (mW/mm^2) for constant open-loop photostimulation",
+    )
+    parser.add_argument(
+        "--maxIrr0",
+        type=float,
+        default=30,
+        help="Maximum Irr0 value optic fiber can take",
+    )
+    parser.add_argument(
+        "--R0",
+        type=float,
+        default=2,
+        help="Optic fiber radius (in mm)",
     )
 
     # args from original interface
@@ -209,12 +256,6 @@ if __name__ == "__main__":
         help="Plot neuron and electrode positions",
     )
     parser.add_argument(
-        "--viz",
-        action="store_true",
-        default=False,
-        help="Visualize using CLEOSim utilities",
-    )
-    parser.add_argument(
         "--show_plots",
         action="store_true",
         default=False,
@@ -229,5 +270,6 @@ if __name__ == "__main__":
     # parser.add_argument("--out_dir", required=True, help="Output directory with trained model")
 
     args = parser.parse_args()
-    with plt.style.context("seaborn-paper"):
+    args.maxIrr0 = max(args.maxIrr0, args.Irr0_OL)
+    with plt.style.context(["seaborn-paper"]):
         main(args)

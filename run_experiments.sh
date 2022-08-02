@@ -11,3 +11,6 @@
 # original
 #                 --f1=5 yields 200-ms pulse
 python run_sim.py --f1=5 --runtime=0.4
+
+# fit
+python run_sim.py --mode=fit --runtime=0.1
