@@ -8,9 +8,19 @@
 # a constant level for open-loop.
 # ======================================================= #
 
+function get_last_dir () {
+    echo "$(ls -tp | grep /$ | head -1)"
+}
+
 # original
 #                 --f1=5 yields 200-ms pulse
 python run_sim.py --f1=5 --runtime=0.4
 
 # fit
-python run_sim.py --mode=fit --runtime=0.1
+python run_sim.py --mode=fit --runtime=13 --maxN=10000 --maxIrr0=30 --target=cython
+# most recent results
+FIT_RESULTS = $(get_last_dir)
+mkdir -p results
+python fit_data.py $FIT_RESULTS --out=results/fit.npz --iterEM=1000
+
+# closed-loop

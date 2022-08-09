@@ -1,6 +1,8 @@
+#! python
 import argparse
 import os
 import time
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +28,8 @@ def main(args):
     assign_coords(all_ngs)
     sim = cleosim.CLSimulator(net)
 
-    config_processor(args, sim)
+    n_opto = 5
+    config_processor(args, sim, n_opto)
 
     lfp = TKLFPSignal("lfp", save_history=True)
     # use same electrode coordinates, with the same 150um scale
@@ -40,20 +43,23 @@ def main(args):
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     light_params = opto.default_blue
     light_params["R0"] = args.R0 * mm  # bigger fiber radius
-    op_int = opto.OptogeneticIntervention(
-        "opto",
-        opto.FourStateModel(opto.ChR2_four_state),
-        light_params,
-        (2.5, -7, 7.5) * mm,
-        (-1, 1, 0),
-        save_history=True,
-        max_Irr0_mW_per_mm2=args.maxIrr0,
-    )
-    # sim.inject_stimulator(op_int, *all_ngs_exc, Iopto_var_name="Iopto")
-    sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name="Iopto")
+    op_ints = []
+    for i in range(1, n_opto + 1):
+        z_mm = i * 15 / n_opto - 1.5  # e.g., opto3 would be in the middle, 7.5
+        op_int = opto.OptogeneticIntervention(
+            f"opto{i}",
+            opto.FourStateModel(opto.ChR2_four_state),
+            light_params,
+            (2.5, -7, z_mm) * mm,
+            (-1, 1, 0),
+            save_history=True,
+            max_Irr0_mW_per_mm2=args.maxIrr0,
+        )
+        sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i}")
+        op_ints.append(op_int)
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
     # sim.network.add(mon_Iopto)
-    plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int)
+    plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints)
 
     print(f"Setup time: {(time.time()-setup_start)} seconds")
 
@@ -69,12 +75,15 @@ def main(args):
         plot_input(path)
 
     uis.aborted = False
-    uis.save_plots()
+    if not args.no_save:
+        uis.save_plots()
     if args.show_plots:
         plt.show()
+    if args.no_save:
+        shutil.rmtree(path)
 
 
-def config_processor(args, sim):
+def config_processor(args, sim, n_opto):
     dt_ms = 1
     t_start_ms = 0
     t_stop_ms = 300
@@ -89,14 +98,27 @@ def config_processor(args, sim):
                 opto_val = args.Irr0_OL
             else:
                 opto_val = 0
-            return {"opto": opto_val}, t_ms
+            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
     elif args.mode == "fit":
+        n_tot = int(args.runtime * 1000)
+        on_off = np.array([])
+        while len(on_off) < args.runtime * 1000:
+            n_on, n_off = np.ceil(200 + 50 * np.random.randn(2))
+            if n_on < 0:
+                n_on = 0
+            if n_off < 0:
+                n_off = 0
+            on_off = np.concatenate([on_off, np.ones(int(n_on)), np.zeros(int(n_off))])
+        u_rand = np.abs(args.maxIrr0 / 3 * np.random.randn(n_tot))
+        sim.u = on_off[:n_tot] * u_rand
+        # plt.plot(sim.u)
+        # plt.show()
 
         def my_process(state, t_ms):
             # one side of a normal distribution. Max is 3 st devs away
-            opto_val = np.abs(args.maxIrr0 / 3 * np.random.randn())
-            return {"opto": opto_val}, t_ms
+            opto_val = sim.u[int(t_ms)]
+            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
     elif args.mode == "CL":
         pass
@@ -110,7 +132,7 @@ def config_processor(args, sim):
     sim.set_io_processor(proc)
 
 
-def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int):
+def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
     colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
     colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
     colors = colors_exc + colors_inh
@@ -120,7 +142,10 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, op_int):
         zlim=(6.5, 9),
         colors=colors,
         invert_z=False,
-        devices=[(probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}), (op_int, {'n_points': 1e5})],
+        devices=[
+            (probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}),
+        ]
+        + [(op_int, {"n_points": 1e5}) for op_int in op_ints],
         scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
         figsize=(3, 4),
     )
@@ -218,10 +243,19 @@ if __name__ == "__main__":
         help="Maximum Irr0 value optic fiber can take",
     )
     parser.add_argument(
-        "--R0",
-        type=float,
-        default=2,
-        help="Optic fiber radius (in mm)",
+        "--fit",
+        type=str,
+        default=None,
+        help="For CL control: .npz file containing system parameters previously fit",
+    )
+    parser.add_argument(
+        "--R0", type=float, default=1.3, help="Optic fiber radius (in mm)"
+    )
+    parser.add_argument(
+        "--no_save",
+        action="store_true",
+        default=False,
+        help="Results folder will be deleted at the end",
     )
 
     # args from original interface

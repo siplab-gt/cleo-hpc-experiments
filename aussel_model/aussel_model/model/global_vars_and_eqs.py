@@ -141,7 +141,12 @@ py_CAN_eqs_curr = '''
     dir_y:1
     dir_z:1
     I_exc=inputs1(t)*int(z_soma<100*scale)*int(z_soma>0*scale):amp
-    Iopto : amp
+    Iopto1 : amp
+    Iopto2 : amp
+    Iopto3 : amp
+    Iopto4 : amp
+    Iopto5 : amp
+    Iopto = Iopto1 + Iopto2 + Iopto3 + Iopto4 + Iopto5 : amp
     taille:metre ** 2
     '''
     

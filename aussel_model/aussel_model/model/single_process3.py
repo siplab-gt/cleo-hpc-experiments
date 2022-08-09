@@ -670,7 +670,7 @@ def run_process(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,typ
                 subplot(4,types[0]+types[1],j+1+(types[0]+types[1])*i)
                 title('raster '+zones[i]+' exc '+str(j))
                 for ind in range(len(all_rasters_t_exc[i][j])):
-                   plot(all_rasters_t_exc[i][j][ind]/msecond, all_rasters_i_exc[i][j][ind], '.r')
+                   plot(all_rasters_t_exc[i][j][ind]/msecond, all_rasters_i_exc[i][j][ind], ',r')
                 xlim(0,runtime/msecond)
                 ylim(0,all_N[i+4*j])
                 xlabel('Time (ms)')
@@ -679,7 +679,7 @@ def run_process(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,typ
                 subplot(4,types[0]+types[1],j+1+types[0]+(types[0]+types[1])*i)
                 title('raster '+zones[i]+' inh '+str(j))
                 for ind in range(len(all_rasters_t_inh[i][j])):
-                    plot(all_rasters_t_inh[i][j][ind]/msecond, all_rasters_i_inh[i][j][ind], '.r') 
+                    plot(all_rasters_t_inh[i][j][ind]/msecond, all_rasters_i_inh[i][j][ind], ',r') 
                 xlim(0,runtime/msecond)
                 ylim(0,all_N[4*types[0]+i+4*j])
                 xlabel('Time (ms)')

@@ -1,9 +1,11 @@
 #!python
 import os
 from pathlib import Path
+
 # import sys
 import argparse
 import time
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,19 +19,19 @@ def main(args):
     z = []
     for results_dir in args.results_dirs:
         results_dir = Path(results_dir)
-        in_npz = np.load(results_dir / 'input.npz')
-        u_opto = in_npz['Irr0_mW_per_mm2'][1:]
+        in_npz = np.load(results_dir / "input.npz")
+        u_opto = in_npz["Irr0_mW_per_mm2"][1:]
         u_opto = u_opto.reshape((1, -1))
         # need transpose so time is in columns
         u.append(u_opto)
-        z_tklfp = np.load(results_dir / 'tklfp.npy')
+        z_tklfp = np.load(results_dir / "tklfp.npy")
         z_tklfp = z_tklfp.reshape((1, -1))
         z.append(z_tklfp)
         assert u_opto.shape[1] == z_tklfp.shape[1]
     if args.dry_run:
         return
 
-    n_x_fit = 4  # latent dimensionality of system
+    n_x_fit = args.nx  # latent dimensionality of system
     n_h = 50  # size of block Hankel data matrix
     dt = 0.001  # timestep (in seconds)
     u_uml = lds.UniformMatrixList(u, free_dim=2)
@@ -38,7 +40,7 @@ def main(args):
     fit, sing_vals = ssid.Run(lds.SSIDWt.kMOESP)
 
     # EM
-    if False:
+    if args.iterEM > 0:
         calc_dynamics = True  # calculate dynamics (A, B mats)
         calc_Q = True  # calculate process noise cov (Q)
         calc_init = True  # calculate initial conditions
@@ -51,7 +53,13 @@ def main(args):
 
         start = time.perf_counter()
         fit = em.Run(
-            calc_dynamics, calc_Q, calc_init, calc_output, calc_measurement, max_iter, tol
+            calc_dynamics,
+            calc_Q,
+            calc_init,
+            calc_output,
+            calc_measurement,
+            max_iter,
+            tol,
         )
         stop = time.perf_counter()
         print(f"Finished EM fit in {(stop-start)*1000} ms.")
@@ -63,21 +71,18 @@ def main(args):
     sys_hat = glds.System(fit)
     sys_hat.Q = np.zeros_like(sys_hat.Q)
     y_hat, x_hat, _ = sys_hat.simulate_block(u)
-    impulse = False
-    if impulse:
-        y_imp_hat = sys_hat.simulate_imp(n_samp_imp)
+    y_imp_hat = sys_hat.simulate_imp(n_samp_imp)
 
     # SSID plot singular values & impulse response
 
     fig, axs = plt.subplots(1, 2)
     axs[0].semilogy(sing_vals[:n_h], "-o", color=[0.5, 0.5, 0.5])
-    axs[0].semilogy(sing_vals[:n_h], color="k", linewidth=2)
+    axs[0].semilogy(sing_vals[:n_h], color="k", linewidth=1)
     axs[0].set(ylabel="Singular Values", xlabel="Singular Value Index")
 
-    if impulse:
-        l2 = axs[1].plot(t_imp, y_imp_hat[0].T, "-", c=[0.5, 0.5, 0.5], linewidth=2)
-        axs[1].set(ylabel="Impulse Response (a.u.)", xlabel="Time (s)")
-        fig.tight_layout()
+    l2 = axs[1].plot(t_imp, y_imp_hat[0].T, "-", c="#C500CC", linewidth=2)
+    axs[1].set(ylabel="Impulse Response (a.u.)", xlabel="Time (s)")
+    fig.tight_layout()
     fig
 
     # %%
@@ -87,15 +92,14 @@ def main(args):
         var_not_explnd = np.var(z_trial - y_hat_trial, axis=(0, 1))
         pve = 1 - var_not_explnd / var
 
-        fig, axs = plt.subplots(2, 1, figsize=(6, 3))
+        fig, axs = plt.subplots(2, 1, figsize=(6, 3), sharex=True)
 
-        t = np.arange(z_trial.shape[1])/1000
+        t = np.arange(z_trial.shape[1]) / 1000
         axs[0].plot(t, z_trial[0, :], "k-")
-        axs[0].plot(t, y_hat_trial[0, :], "-", c="gray", linewidth=2)
+        axs[0].plot(t, y_hat_trial[0, :], "-", c="#C500CC", linewidth=2)
         axs[0].legend(["measurement", "fit"])
         axs[0].set(
             ylabel=f"TKLFP (μV)",
-            xlabel="Time (s)",
             title=f"proportion var explained (training): {pve:0.3f}",
         )
 
@@ -105,13 +109,39 @@ def main(args):
         fig.tight_layout()
     plt.show()
 
+    # with open(args.out,'wb') as fh:
+    #     pickle.dump(fit, fh)
+    attrs_to_save = {
+        var: getattr(fit, var)
+        for var in [
+            "n_u",
+            "n_x",
+            "n_y",
+            "dt",
+            "A",
+            "B",
+            "C",
+            "d",
+            "g",
+            "m",
+            "Q",
+            "x0",
+            "P0",
+            "R",
+        ]
+    }
+    np.savez(args.out, **attrs_to_save)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fit linear model to data")
 
-    parser.add_argument('results_dirs', nargs='+', metavar='results_dir')
-    parser.add_argument('--dry_run', action='store_true', default=False)
-    parser.add_argument('--iterEM', type=int, default=100, help="max_iter for EM")
+    parser.add_argument("results_dirs", nargs="+", metavar="results_dir")
+    parser.add_argument("--dry_run", action="store_true", default=False)
+    parser.add_argument("--iterEM", type=int, default=0, help="max_iter for EM")
+    parser.add_argument("--nx", type=int, default=4, help="num hidden states for fit")
+    parser.add_argument(
+        "--out", type=str, default="results/fit.npz", help="where to store fit"
+    )
 
     main(parser.parse_args())
