@@ -6,11 +6,13 @@ import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.linalg import solve_discrete_are
 from brian2 import Network, mm, ms, StateMonitor, prefs
 
 import cleosim
 from cleosim.electrodes import Probe, TKLFPSignal
 from cleosim import opto
+import ldsctrlest.gaussian as glds
 
 from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
@@ -28,8 +30,9 @@ def main(args):
     assign_coords(all_ngs)
     sim = cleosim.CLSimulator(net)
 
-    n_opto = 5
-    config_processor(args, sim, n_opto)
+    n_opto_col = 10
+    n_opto_tot = 2*n_opto_col
+    config_processor(args, sim, n_opto_tot, path)
 
     lfp = TKLFPSignal("lfp", save_history=True)
     # use same electrode coordinates, with the same 150um scale
@@ -43,20 +46,28 @@ def main(args):
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     light_params = opto.default_blue
     light_params["R0"] = args.R0 * mm  # bigger fiber radius
+    light_params["K"] *= args.Kfactor  # alter absorbance
+    light_params["S"] *= args.Sfactor  # alter scattering
     op_ints = []
-    for i in range(1, n_opto + 1):
-        z_mm = i * 15 / n_opto - 1.5  # e.g., opto3 would be in the middle, 7.5
-        op_int = opto.OptogeneticIntervention(
-            f"opto{i}",
-            opto.FourStateModel(opto.ChR2_four_state),
-            light_params,
-            (2.5, -7, z_mm) * mm,
-            (-1, 1, 0),
-            save_history=True,
-            max_Irr0_mW_per_mm2=args.maxIrr0,
-        )
-        sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i}")
-        op_ints.append(op_int)
+    for j, (x, y, drctn) in enumerate([
+        [2.5, -6, (0, 1, 0)],
+        [2.5, -7, (-1, 0, 0)],
+    ]):
+        for i in range(1, n_opto_col + 1):
+            z_mm = (i - 0.5) * 15 / n_opto_col
+            i_tot = j * n_opto_col + i
+            op_int = opto.OptogeneticIntervention(
+                f"opto{i_tot}",
+                opto.FourStateModel(opto.ChR2_four_state),
+                light_params,
+                (x, y, z_mm) * mm,
+                drctn,
+                save_history=True,
+                max_Irr0_mW_per_mm2=args.maxIrr0,
+            )
+            sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}")
+            sim.inject_stimulator(op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}")
+            op_ints.append(op_int)
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
     # sim.network.add(mon_Iopto)
     plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints)
@@ -83,15 +94,17 @@ def main(args):
         shutil.rmtree(path)
 
 
-def config_processor(args, sim, n_opto):
+def config_processor(args, sim, n_opto, path):
     dt_ms = 1
-    t_start_ms = 0
+    t_start_ms = 100
     t_stop_ms = 300
 
     if args.mode == "orig":
         # this is equivalent to the RecordOnlyProcessor
         my_process = lambda state, t_ms: ({}, t_ms)
-    elif args.mode == "OL":
+
+    elif args.mode == "OLconst":
+        shutil.copy(args.ref, os.path.join(path, "ref.npy"))
 
         def my_process(state, t_ms):
             if t_start_ms <= t_ms < t_stop_ms:
@@ -100,9 +113,28 @@ def config_processor(args, sim, n_opto):
                 opto_val = 0
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
+    elif args.mode == "OLmodel":
+        # compute stimulus beforehand using model fit
+        shutil.copy(args.ref, os.path.join(path, "ref.npy"))
+        ref = np.load(args.ref)
+        gsys = load_fit_sys(path, args)
+        sys2sim = gsys.copy()
+        ctrlr = glds.Controller(gsys, u_lb=0, u_ub=args.maxIrr0)
+        ctrlr.Kc = lqr_gain(gsys, args.r)
+        sim.u = np.empty_like(ref)
+        for t, yref in enumerate(ref):
+            ctrlr.y_ref = yref
+            sim.u[t] = ctrlr.ControlOutputReference(sys2sim.y)[0, 0]
+            sys2sim.Simulate(sim.u[t])
+
+        def my_process(state, t_ms):
+            opto_val = sim.u[int(t_ms)]
+            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
+
     elif args.mode == "fit":
         n_tot = int(args.runtime * 1000)
         on_off = np.array([])
+        # alternate between on and off periods
         while len(on_off) < args.runtime * 1000:
             n_on, n_off = np.ceil(200 + 50 * np.random.randn(2))
             if n_on < 0:
@@ -110,18 +142,31 @@ def config_processor(args, sim, n_opto):
             if n_off < 0:
                 n_off = 0
             on_off = np.concatenate([on_off, np.ones(int(n_on)), np.zeros(int(n_off))])
+        # when on:
+        # one side of a normal distribution. Max is 3 st devs away
         u_rand = np.abs(args.maxIrr0 / 3 * np.random.randn(n_tot))
         sim.u = on_off[:n_tot] * u_rand
-        # plt.plot(sim.u)
-        # plt.show()
 
         def my_process(state, t_ms):
-            # one side of a normal distribution. Max is 3 st devs away
             opto_val = sim.u[int(t_ms)]
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
     elif args.mode == "CL":
-        pass
+        gsys = load_fit_sys(args)
+        ctrlr = glds.Controller(gsys, u_lb=0, u_ub=args.maxIrr0)
+        ctrlr.Kc = lqr_gain(gsys, args.r)
+        sim.ref = np.load(args.ref)
+        shutil.copy(args.ref, os.path.join(path, "ref.npy"))
+        sim.ctrlr = ctrlr
+
+        def my_process(state, t_ms):
+            lfp_uV = state["probe"]["lfp"]
+            lfp1 = lfp_uV[:144].mean()
+            lfp2 = lfp_uV[144:288].mean()
+            # assuming regular samples, can us t_ms directly as index
+            sim.ctrlr.y_ref = sim.ref[int(t_ms)]
+            opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
+            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
     # need to subclass so it's concrete
     class MyLIOP(cleosim.processing.LatencyIOProcessor):
@@ -130,6 +175,22 @@ def config_processor(args, sim, n_opto):
 
     proc = MyLIOP(dt_ms)
     sim.set_io_processor(proc)
+
+def load_fit_sys(path, args) -> glds.System:
+    fit = dict(np.load(args.fit))
+    # save system fit
+    shutil.copy(args.fit, os.path.join(path, "fit.npz"))
+    sys = glds.System(fit.pop("n_u"), fit.pop("n_x"), fit.pop("n_y"), fit.pop("dt"))
+    for k, v in fit.items():
+        setattr(sys, k, v)
+    return sys
+
+
+def lqr_gain(sys: glds.System, r: float):
+    Q = sys.C.T @ sys.C
+    A, B = sys.A, sys.B
+    P = solve_discrete_are(A, B, Q, r)
+    return np.linalg.inv(r + B.T @ P @ B) @ (B.T @ P @ A)
 
 
 def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
@@ -145,7 +206,7 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
         devices=[
             (probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}),
         ]
-        + [(op_int, {"n_points": 1e5}) for op_int in op_ints],
+        + [(op_int, {"n_points": 1e4, "marker": '.'}) for op_int in op_ints],
         scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
         figsize=(3, 4),
     )
@@ -182,6 +243,8 @@ def save_lfp(path, lfp: TKLFPSignal):
     lfp2 = lfp.lfp_uV[:, 144:288].mean(axis=1)
     fname = os.path.join(path, "tklfp.npy")
     np.save(fname, lfp2 - lfp1)
+    t_fname = os.path.join(path, "t_ms_tklfp.npy")
+    np.save(t_fname, lfp.t_ms)
 
 
 def save_input(path, op_int: opto.OptogeneticIntervention):
@@ -222,7 +285,7 @@ if __name__ == "__main__":
         "--mode",
         type=str,
         default="orig",
-        help="Select experiment mode: orig, OL, CL, or fit",
+        help="Select experiment mode: orig, OLconst, OLmodel, CL, or fit",
     )
     parser.add_argument(
         "--target",
@@ -239,8 +302,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--maxIrr0",
         type=float,
-        default=30,
-        help="Maximum Irr0 value optic fiber can take",
+        default=75,
+        help="Maximum Irr0 value optic fiber can take. 75 default is from Cardin et al., 2010",
     )
     parser.add_argument(
         "--fit",
@@ -249,7 +312,31 @@ if __name__ == "__main__":
         help="For CL control: .npz file containing system parameters previously fit",
     )
     parser.add_argument(
-        "--R0", type=float, default=1.3, help="Optic fiber radius (in mm)"
+        "--ref",
+        type=str,
+        default=None,
+        help="For CL control: .npy file containing TKLFP waveform to evoke",
+    )
+    parser.add_argument(
+        "--r",
+        type=float,
+        default=1e-3,
+        help="For CL control: input penalty in quadratic cost function",
+    )
+    parser.add_argument(
+        "--R0", type=float, default=0.2, help="Optic fiber radius (in mm)"
+    )
+    parser.add_argument(
+        "--Kfactor",
+        type=float,
+        default=0.1,
+        help="Factor by which to multiply default absorbance coefficient (K)",
+    )
+    parser.add_argument(
+        "--Sfactor",
+        type=float,
+        default=0.1,
+        help="Factor by which to multiply default scattering coefficient (S)",
     )
     parser.add_argument(
         "--no_save",
@@ -266,7 +353,7 @@ if __name__ == "__main__":
         help="Choose the maximum number of neurons in the network (in the CA1 excitatory neurons group) :\nThe total number of neurons will be 3.32*N",
     )
     parser.add_argument(
-        "--runtime", type=float, default=0.5, help="Duration of the simulation (s)"
+        "--runtime", type=float, default=0, help="Duration of the simulation (s)"
     )
     parser.add_argument("--f1", type=float, default=2.5, help="Input frequency (Hz)")
     parser.add_argument(

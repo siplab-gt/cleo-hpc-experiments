@@ -33,14 +33,17 @@ taille_exc_normale=29e3 * umetre ** 2
 taille_exc_2=0.5*taille_exc_normale
 
 inh_eqs_curr = '''
-    dv/dt = ( - I_leak - I_K - I_Na - I_SynE - I_SynExt - I_SynHipp - I_SynI + noise_amp_inh +r_noise_inh*randn() +I_exc) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
+    dv/dt = ( - I_leak - I_K - I_Na - I_SynE - I_SynExt - I_SynHipp - I_SynI + noise_amp_inh +r_noise_inh*randn() +I_exc + Iopto) / ((1 * ufarad * cm ** -2) * (taille)) : volt 
     Vm = (- I_leak - I_K - I_Na) / ((1 * ufarad * cm ** -2) * (taille))*pas_de_temps : volt 
     I_leak = ((0.1e-3 * siemens * cm ** -2) * (taille)) * (v - (-65 * mV)) : amp 
     I_K = ((9e-3 * siemens * cm ** -2) * (taille)) * (n ** 4) * (v - (-90 * mV)) : amp
         dn/dt = (n_inf - n) / tau_n : 1
         n_inf = alphan / (alphan + betan) : 1
         tau_n = 0.2 / (alphan + betan) : second
-        alphan = 0.01 * (mV ** -1) * (v  + 34 * mV) / (1. - exp(- 0.1 * (mV ** -1) * (v + 34 * mV))) / ms : Hz
+        # NOTE: replacing original with exprel versions
+        # alphan = 0.01 * (mV ** -1) * (v  + 34 * mV) / (1. - exp(- 0.1 * (mV ** -1) * (v + 34 * mV))) / ms : Hz
+        # alphan = 0.01 / mV * (v  + 34 * mV) / (1. - exp(- 0.1 * (v/mV + 34))) / ms : Hz
+        alphan = 0.01 / .1 / exprel(-.1 * (v/mV + 34)) / ms : Hz
         betan = 0.125 * exp( - (v + 44 * mV) / (80 * mV)) / ms : Hz
     I_Na = ((35e-3 * siemens * cm ** -2) * (taille)) * (m ** 3) * h * (v - (55 * mV)) : amp
         dm/dt = (m_inf - m) / tau_m : 1
@@ -49,7 +52,9 @@ inh_eqs_curr = '''
         tau_m = 0.2 / (alpham + betam) : second
         h_inf = alphah / (alphah + betah) : 1
         tau_h = 0.2 / (alphah + betah) : second
-        alpham = 0.1 * (mV ** -1) * (v + 35 * mV) / (1. - exp(- (v + 35 * mV) / (10 * mV))) / ms : Hz
+        # NOTE: replacing original with exprel versions
+        # alpham = 0.1 * (mV ** -1) * (v + 35 * mV) / (1. - exp(- (v + 35 * mV) / (10 * mV))) / ms : Hz
+        alpham = 0.1 * 10 / exprel(-(v/mV + 35)/10) / ms : Hz
         betam = 4 * exp(- (v + 60 * mV) / (18 * mV)) / ms : Hz
         alphah = 0.07 * exp(- (v + 58 * mV) / (20 * mV)) / ms : Hz
         betah = 1. / (exp((- 0.1 * (mV ** -1)) * (v + 28 * mV)) + 1.) / ms : Hz
@@ -71,6 +76,46 @@ inh_eqs_curr = '''
     z_soma:metre
     I_exc=inputs1(t)*int(z_soma<100*scale)*int(z_soma>0*scale):amp
     taille:metre ** 2
+    Iopto1 : amp
+    Iopto2 : amp
+    Iopto3 : amp
+    Iopto4 : amp
+    Iopto5 : amp
+    Iopto6 : amp
+    Iopto7 : amp
+    Iopto8 : amp
+    Iopto9 : amp
+    Iopto10 : amp
+    Iopto11 : amp
+    Iopto12 : amp
+    Iopto13 : amp
+    Iopto14 : amp
+    Iopto15 : amp
+    Iopto16 : amp
+    Iopto17 : amp
+    Iopto18 : amp
+    Iopto19 : amp
+    Iopto20 : amp
+    Iopto = Iopto1 
+        + Iopto2
+        + Iopto3
+        + Iopto4
+        + Iopto5
+        + Iopto6
+        + Iopto7
+        + Iopto8
+        + Iopto9
+        + Iopto10
+        + Iopto11
+        + Iopto12
+        + Iopto13
+        + Iopto14
+        + Iopto15
+        + Iopto16
+        + Iopto17
+        + Iopto18
+        + Iopto19
+        + Iopto20 : amp
     '''
 
     # Pyramidal CAN
@@ -146,7 +191,41 @@ py_CAN_eqs_curr = '''
     Iopto3 : amp
     Iopto4 : amp
     Iopto5 : amp
-    Iopto = Iopto1 + Iopto2 + Iopto3 + Iopto4 + Iopto5 : amp
+    Iopto6 : amp
+    Iopto7 : amp
+    Iopto8 : amp
+    Iopto9 : amp
+    Iopto10 : amp
+    Iopto11 : amp
+    Iopto12 : amp
+    Iopto13 : amp
+    Iopto14 : amp
+    Iopto15 : amp
+    Iopto16 : amp
+    Iopto17 : amp
+    Iopto18 : amp
+    Iopto19 : amp
+    Iopto20 : amp
+    Iopto = Iopto1 
+        + Iopto2
+        + Iopto3
+        + Iopto4
+        + Iopto5
+        + Iopto6
+        + Iopto7
+        + Iopto8
+        + Iopto9
+        + Iopto10
+        + Iopto11
+        + Iopto12
+        + Iopto13
+        + Iopto14
+        + Iopto15
+        + Iopto16
+        + Iopto17
+        + Iopto18
+        + Iopto19
+        + Iopto20 : amp
     taille:metre ** 2
     '''
     
@@ -223,7 +302,10 @@ inh_eqs = '''
         dn/dt = (n_inf - n) / tau_n : 1
         n_inf = alphan / (alphan + betan) : 1
         tau_n = 0.2 / (alphan + betan) : second
-        alphan = 0.01 * (mV ** -1) * (v  + 34 * mV) / (1. - exp(- 0.1 * (mV ** -1) * (v + 34 * mV))) / ms : Hz
+        # NOTE: replacing original with exprel versions
+        # alphan = 0.01 * (mV ** -1) * (v  + 34 * mV) / (1. - exp(- 0.1 * (mV ** -1) * (v + 34 * mV))) / ms : Hz
+        # alphan = 0.01 / mV * (v  + 34 * mV) / (1. - exp(- 0.1 * (v/mV + 34))) / ms : Hz
+        alphan = 0.01 / .1 / exprel(-.1 * (v/mV + 34)) / ms : Hz
         betan = 0.125 * exp( - (v + 44 * mV) / (80 * mV)) / ms : Hz
     I_Na = ((35e-3 * siemens * cm ** -2) * (taille)) * (m ** 3) * h * (v - (55 * mV)) : amp
         dm/dt = (m_inf - m) / tau_m : 1
@@ -232,7 +314,9 @@ inh_eqs = '''
         tau_m = 0.2 / (alpham + betam) : second
         h_inf = alphah / (alphah + betah) : 1
         tau_h = 0.2 / (alphah + betah) : second
-        alpham = 0.1 * (mV ** -1) * (v + 35 * mV) / (1. - exp(- (v + 35 * mV) / (10 * mV))) / ms : Hz
+        # NOTE: replacing original with exprel versions
+        # alpham = 0.1 * (mV ** -1) * (v + 35 * mV) / (1. - exp(- (v + 35 * mV) / (10 * mV))) / ms : Hz
+        alpham = 0.1 * 10 / exprel(-(v/mV + 35)/10) / ms : Hz
         betam = 4 * exp(- (v + 60 * mV) / (18 * mV)) / ms : Hz
         alphah = 0.07 * exp(- (v + 58 * mV) / (20 * mV)) / ms : Hz
         betah = 1. / (exp((- 0.1 * (mV ** -1)) * (v + 28 * mV)) + 1.) / ms : Hz

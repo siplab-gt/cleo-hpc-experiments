@@ -14,13 +14,25 @@ function get_last_dir () {
 
 # original
 #                 --f1=5 yields 200-ms pulse
-python run_sim.py --f1=5 --runtime=0.4
+python run_sim.py --f1=5 --runtime=0.4 --mode=orig
+ln -s $(get_last_dir) orig_results
 
 # fit
-python run_sim.py --mode=fit --runtime=13 --maxN=10000 --maxIrr0=30 --target=cython
-# most recent results
-FIT_RESULTS = $(get_last_dir)
-mkdir -p results
-python fit_data.py $FIT_RESULTS --out=results/fit.npz --iterEM=1000
+#                    I just happened to use 13 seconds of training data
+python run_sim.py --mode=fit --runtime=13 --target=cython
+ln -s $(get_last_dir) fit_results
+python fit_data.py fit_results --out=fit_results/fit.npz --iterEM=1000
 
 # closed-loop
+python run_sim.py --mode=CL --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython
+ln -s $(get_last_dir) cl_results
+
+# open-loop constant input
+IRR0="$(python get_OLconst_level.py cl_results/input.npz)"
+# --ref passed just for plotting
+python run_sim.py --mode=OLconst --Irr0_OL=${IRR0} --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython
+ln -s $(get_last_dir) olconst_results
+
+# open-loop model-based
+python run_sim.py --mode=OLmodel --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython
+ln -s $(get_last_dir) olmodel_results

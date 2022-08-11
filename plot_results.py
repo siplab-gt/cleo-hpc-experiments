@@ -1,3 +1,4 @@
+#!python
 import os
 import sys
 import argparse
@@ -7,12 +8,20 @@ import matplotlib.pyplot as plt
 
 
 def plot_lfp(path):
+    fig, ax = plt.subplots()
+
+    ref_fname = os.path.join(path, 'ref.npy')
+    if os.path.exists(ref_fname):
+        ax.plot(np.load(ref_fname), lw=2, c='gray')
+
     lfp = np.load(os.path.join(path, "tklfp.npy"))
-    plt.figure()
-    plt.plot(lfp)
+    ax.plot(lfp, c='black', )
     plt.title("TKLFP")
     plt.ylabel("μV")
     plt.xlabel("ms")
+
+    if os.path.exists(ref_fname):
+        plt.legend(['reference', 'measured'])
 
 
 def plot_input(path):
