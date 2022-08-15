@@ -194,6 +194,8 @@ def lqr_gain(sys: glds.System, r: float):
 
 
 def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
+    if args.opto_slice:
+        op_ints = [op_ints[4], op_ints[14]]
     colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
     colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
     colors = colors_exc + colors_inh
@@ -211,7 +213,7 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
         figsize=(3, 4),
     )
     ax.set(zticks=[7, 8, 9])
-    ax.view_init(60, -75)
+    ax.view_init(60, -105)
     ax.get_legend().remove()
 
 
@@ -381,6 +383,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Show interactive plot windows after simulation",
+    )
+    parser.add_argument(
+        '--opto_slice',
+        action='store_true',
+        default=False,
+        help='Whether to only plot fibers in the slice visualized',
     )
 
     # args for wrapping with CLEOSim
