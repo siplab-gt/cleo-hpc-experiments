@@ -24,15 +24,15 @@ ln -s $(get_last_dir) fit_results
 python fit_data.py fit_results --out=fit_results/fit.npz --iterEM=1000
 
 # closed-loop
-python run_sim.py --mode=CL --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython
+python run_sim.py --mode=CL --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython --noise
 ln -s $(get_last_dir) cl_results
 
 # open-loop constant input
 IRR0="$(python get_OLconst_level.py cl_results/input.npz)"
 # --ref passed just for plotting
-python run_sim.py --mode=OLconst --Irr0_OL=${IRR0} --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython
+python run_sim.py --mode=OLconst --Irr0_OL=${IRR0} --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython --noise
 ln -s $(get_last_dir) olconst_results
 
 # open-loop model-based
-python run_sim.py --mode=OLmodel --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython
+python run_sim.py --mode=OLmodel --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --runtime=0.4 --target=cython --noise
 ln -s $(get_last_dir) olmodel_results

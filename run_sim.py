@@ -1,4 +1,5 @@
 #! python
+from __future__ import annotations
 import argparse
 import os
 import time
@@ -44,30 +45,31 @@ def main(args):
         # with the average orientation for the exc neurons in each region
         sim.inject_recorder(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
-    light_params = opto.default_blue
-    light_params["R0"] = args.R0 * mm  # bigger fiber radius
-    light_params["K"] *= args.Kfactor  # alter absorbance
-    light_params["S"] *= args.Sfactor  # alter scattering
     op_ints = []
-    for j, (x, y, drctn) in enumerate([
-        [2.5, -6, (0, 1, 0)],
-        [2.5, -7, (-1, 0, 0)],
-    ]):
-        for i in range(1, n_opto_col + 1):
-            z_mm = (i - 0.5) * 15 / n_opto_col
-            i_tot = j * n_opto_col + i
-            op_int = opto.OptogeneticIntervention(
-                f"opto{i_tot}",
-                opto.FourStateModel(opto.ChR2_four_state),
-                light_params,
-                (x, y, z_mm) * mm,
-                drctn,
-                save_history=True,
-                max_Irr0_mW_per_mm2=args.maxIrr0,
-            )
-            sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}")
-            sim.inject_stimulator(op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}")
-            op_ints.append(op_int)
+    if args.mode != 'orig':
+        light_params = opto.default_blue
+        light_params["R0"] = args.R0 * mm  # bigger fiber radius
+        light_params["K"] *= args.Kfactor  # alter absorbance
+        light_params["S"] *= args.Sfactor  # alter scattering
+        for j, (x, y, drctn) in enumerate([
+            [2.5, -6, (0, 1, 0)],
+            [2.5, -7, (-1, 0, 0)],
+        ]):
+            for i in range(1, n_opto_col + 1):
+                z_mm = (i - 0.5) * 15 / n_opto_col
+                i_tot = j * n_opto_col + i
+                op_int = opto.OptogeneticIntervention(
+                    f"opto{i_tot}",
+                    opto.FourStateModel(opto.ChR2_four_state),
+                    light_params,
+                    (x, y, z_mm) * mm,
+                    drctn,
+                    save_history=True,
+                    max_Irr0_mW_per_mm2=args.maxIrr0,
+                )
+                sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}")
+                sim.inject_stimulator(op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}")
+                op_ints.append(op_int)
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
     # sim.network.add(mon_Iopto)
     plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints)
@@ -82,7 +84,7 @@ def main(args):
 
         save_lfp(path, lfp)
         plot_lfp(path)
-        save_input(path, op_int)
+        save_input(path, op_ints)
         plot_input(path)
 
     uis.aborted = False
@@ -98,13 +100,17 @@ def config_processor(args, sim, n_opto, path):
     dt_ms = 1
     t_start_ms = 100
     t_stop_ms = 300
+    t_trial_ms = 400
+
+    if args.ref:
+        ref = np.tile(np.load(args.ref), args.n_trials)
+        np.save(os.path.join(path, 'ref.npy'), ref)
 
     if args.mode == "orig":
         # this is equivalent to the RecordOnlyProcessor
         my_process = lambda state, t_ms: ({}, t_ms)
 
     elif args.mode == "OLconst":
-        shutil.copy(args.ref, os.path.join(path, "ref.npy"))
 
         def my_process(state, t_ms):
             if t_start_ms <= t_ms < t_stop_ms:
@@ -115,8 +121,6 @@ def config_processor(args, sim, n_opto, path):
 
     elif args.mode == "OLmodel":
         # compute stimulus beforehand using model fit
-        shutil.copy(args.ref, os.path.join(path, "ref.npy"))
-        ref = np.load(args.ref)
         gsys = load_fit_sys(path, args)
         sys2sim = gsys.copy()
         ctrlr = glds.Controller(gsys, u_lb=0, u_ub=args.maxIrr0)
@@ -152,10 +156,10 @@ def config_processor(args, sim, n_opto, path):
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
     elif args.mode == "CL":
-        gsys = load_fit_sys(args)
+        gsys = load_fit_sys(path, args)
         ctrlr = glds.Controller(gsys, u_lb=0, u_ub=args.maxIrr0)
         ctrlr.Kc = lqr_gain(gsys, args.r)
-        sim.ref = np.load(args.ref)
+        sim.ref = ref
         shutil.copy(args.ref, os.path.join(path, "ref.npy"))
         sim.ctrlr = ctrlr
 
@@ -166,7 +170,7 @@ def config_processor(args, sim, n_opto, path):
             # assuming regular samples, can us t_ms directly as index
             sim.ctrlr.y_ref = sim.ref[int(t_ms)]
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
-            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
+            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms + 3
 
     # need to subclass so it's concrete
     class MyLIOP(cleosim.processing.LatencyIOProcessor):
@@ -249,14 +253,32 @@ def save_lfp(path, lfp: TKLFPSignal):
     np.save(t_fname, lfp.t_ms)
 
 
-def save_input(path, op_int: opto.OptogeneticIntervention):
+def save_input(path, op_ints: list[opto.OptogeneticIntervention]):
+    if len(op_ints) == 0:
+        return
     fname = os.path.join(path, "input.npz")
     npzfile = np.load(fname)
-    Irr0_mW_per_mm2 = np.array(op_int.values)
+    Irr0_mW_per_mm2 = np.array(op_ints[0].values)
     np.savez_compressed(
-        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=op_int.t_ms, **npzfile
+        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=op_ints[0].t_ms, **npzfile
     )
 
+# %%
+# l is *1024/1000 to convert from their 1024 Hz samples to ms
+def gp_noise(in1, mu=.2, σ=.1, l=30*1024/1000):
+    """assuming no units, will be nA"""
+    t = np.arange(len(in1))
+    t1, t2 = np.meshgrid(t, t)
+    Σ = σ**2 * np.exp(-(t2 - t1)**2 / (2 * l**2))
+    rng = np.random.default_rng()
+    noised = rng.multivariate_normal(in1 + mu, Σ)
+    return noised * 5 / 6
+
+# a = np.zeros(400)
+# a[100:300] = 1
+# plt.plot(gp_noise(a))
+# plt.plot(gp_noise(np.zeros_like(a)))
+# %%
 
 def setup_aussel_net(args) -> Network:
     uis.maxN.set(args.maxN)
@@ -269,9 +291,10 @@ def setup_aussel_net(args) -> Network:
         uis.save_neuron_pos.set("True")
     if args.mode != "orig":
         uis.A1.set(0)
+    noise_adder = gp_noise if args.noise else lambda x: x
 
     params = uis.get_process_params()
-    return sp3.net_setup(*params, plot_topo=args.plot_topo), params
+    return sp3.net_setup(*params, plot_topo=args.plot_topo, noise_adder=noise_adder), params
 
 
 if __name__ == "__main__":
@@ -317,7 +340,13 @@ if __name__ == "__main__":
         "--ref",
         type=str,
         default=None,
-        help="For CL control: .npy file containing TKLFP waveform to evoke",
+        help="For OL/CL control: .npy file containing TKLFP waveform to evoke",
+    )
+    parser.add_argument(
+        "--n_trials",
+        type=int,
+        default=1,
+        help="For OL/CL control: number of trials to perform",
     )
     parser.add_argument(
         "--r",
@@ -345,6 +374,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Results folder will be deleted at the end",
+    )
+    parser.add_argument(
+        "--noise",
+        action="store_true",
+        default=False,
+        help="Add noise to the Iext input",
     )
 
     # args from original interface
@@ -400,5 +435,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args.maxIrr0 = max(args.maxIrr0, args.Irr0_OL)
+    if args.ref:
+        ref = np.load(args.ref)
+        assert len(ref) == 400
+        args.runtime = len(ref) * args.n_trials / 1000
+
     with plt.style.context(["seaborn-paper"]):
         main(args)
+
+# %%

@@ -71,7 +71,7 @@ def timedarray2array(t_array,tmax,dt, return_t=False):
     else:
         return res_array
 
-def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs):
+def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs, noise_adder=lambda x: x):
     record_dt=1./1024 *second
 #    print(input_type,A0,A1,dur,f1,runtime)
     global inputs1,inputs2,inputs3
@@ -114,6 +114,11 @@ def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,i
         in_1[deb:int((t_start+dur)/record_dt)]=A0*int(count==0)+A1*int(count==1)
 #        figure()
 #        plot(in_1)
+        in_1 = noise_adder(in_1)
+        # print(in_1)
+        # import matplotlib.pyplot as plt
+        # plt.plot(in_1)
+        # plt.show()
         inputs1=TimedArray(in_1*namp,dt=record_dt)
         inputs2=TimedArray(in_1*namp,dt=record_dt)
         inputs3=TimedArray(in_1*namp,dt=record_dt)

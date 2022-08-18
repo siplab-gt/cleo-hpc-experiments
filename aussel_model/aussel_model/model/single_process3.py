@@ -26,7 +26,7 @@ def process(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle
     net, all_neuron_groups, elec_pos = net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
     return run_process(net, all_neuron_groups, elec_pos, runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek)
 
-def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False, plot_topo=False, save_inputs=True):
+def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,save_all_FR,path,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek, bis=False, plot_topo=False, save_inputs=True, noise_adder=lambda x: x):
     liste_params=[runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cycle,input_type,all_p_intra,all_p_inter,all_gains,all_g_max_i,all_g_max_e,gCAN,save_sim_raster,save_neuron_pos,save_syn_mat,in_file_1,in_file_2,in_file_3,in_fs,tau_Cl,Ek]
     liste_params_names=['runtime', 'plot_raster','types','all_N','topo','co','co2','A0','A1','dur','f1','duty_cycle','input_type','all_p_intra','all_p_inter','all_gains','all_g_max_i','all_g_max_e','gCAN','save_sim_raster','save_neuron_pos','save_syn_mat','in_file_1','in_file_2','in_file_3','in_fs','tau_Cl','Ek']
 #    print(liste_params)
@@ -125,7 +125,7 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
     record_dt=1./1024 *second
 
     print('Generating the inputs')
-    inputs1,inputs2,inputs3=apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs)
+    inputs1,inputs2,inputs3=apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs, noise_adder=noise_adder)
 #    print(inputs1(500*msecond))
     if save_inputs:
         t_s, inputs1_arr = timedarray2array(inputs1, runtime, record_dt, return_t=True)

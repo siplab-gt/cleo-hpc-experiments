@@ -29,8 +29,11 @@ def plot_input(path):
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
     ax1.plot(npz["t_s"]*1000, npz["inputs1"])
     ax1.set(title="external current", ylabel="$I_{ext}$ (nA)")
-    ax2.step(npz["t_opto_ms"], npz["Irr0_mW_per_mm2"], where='post')
-    ax2.set(title="optogenetic input", xlabel="t (ms)", ylabel="$Irr_0$ (mW/mm$^2$)")
+    try:
+        ax2.step(npz["t_opto_ms"], npz["Irr0_mW_per_mm2"], where='post')
+        ax2.set(title="optogenetic input", xlabel="t (ms)", ylabel="$Irr_0$ (mW/mm$^2$)")
+    except KeyError:
+        pass
 
 
 # def main(args):
