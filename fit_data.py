@@ -47,7 +47,7 @@ def main(args):
         calc_output = True  # calculate output (C)
         calc_measurement = True  # calculate output noise (R)
         max_iter = args.iterEM
-        tol = 1e-2
+        tol = args.tolEM
 
         em = glds.FitEM(fit, u_uml, z_uml)
 
@@ -139,6 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("results_dirs", nargs="+", metavar="results_dir")
     parser.add_argument("--dry_run", action="store_true", default=False)
     parser.add_argument("--iterEM", type=int, default=0, help="max_iter for EM")
+    parser.add_argument("--tolEM", type=float, default=1e-2, help="tol for EM")
     parser.add_argument("--nx", type=int, default=4, help="num hidden states for fit")
     parser.add_argument(
         "--out", type=str, default="results/fit.npz", help="where to store fit"

@@ -32,7 +32,7 @@ def main(args):
     sim = cleosim.CLSimulator(net)
 
     n_opto_col = 10
-    n_opto_tot = 2*n_opto_col
+    n_opto_tot = 2 * n_opto_col
     config_processor(args, sim, n_opto_tot, path)
 
     lfp = TKLFPSignal("lfp", save_history=True)
@@ -46,15 +46,17 @@ def main(args):
         sim.inject_recorder(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     op_ints = []
-    if args.mode != 'orig':
+    if args.mode != "orig":
         light_params = opto.default_blue
         light_params["R0"] = args.R0 * mm  # bigger fiber radius
         light_params["K"] *= args.Kfactor  # alter absorbance
         light_params["S"] *= args.Sfactor  # alter scattering
-        for j, (x, y, drctn) in enumerate([
-            [2.5, -6, (0, 1, 0)],
-            [2.5, -7, (-1, 0, 0)],
-        ]):
+        for j, (x, y, drctn) in enumerate(
+            [
+                [2.5, -6, (0, 1, 0)],
+                [2.5, -7, (-1, 0, 0)],
+            ]
+        ):
             for i in range(1, n_opto_col + 1):
                 z_mm = (i - 0.5) * 15 / n_opto_col
                 i_tot = j * n_opto_col + i
@@ -67,8 +69,12 @@ def main(args):
                     save_history=True,
                     max_Irr0_mW_per_mm2=args.maxIrr0,
                 )
-                sim.inject_stimulator(op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}")
-                sim.inject_stimulator(op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}")
+                sim.inject_stimulator(
+                    op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}"
+                )
+                sim.inject_stimulator(
+                    op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}"
+                )
                 op_ints.append(op_int)
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
     # sim.network.add(mon_Iopto)
@@ -104,7 +110,7 @@ def config_processor(args, sim, n_opto, path):
 
     if args.ref:
         ref = np.tile(np.load(args.ref), args.n_trials)
-        np.save(os.path.join(path, 'ref.npy'), ref)
+        np.save(os.path.join(path, "ref.npy"), ref)
 
     if args.mode == "orig":
         # this is equivalent to the RecordOnlyProcessor
@@ -118,6 +124,13 @@ def config_processor(args, sim, n_opto, path):
             else:
                 opto_val = 0
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
+
+    elif args.mode == "OLnaive":
+        u = -ref / np.max(np.abs(ref)) * args.maxIrr0
+        u[u < 0] = 0
+
+        def my_process(state, t_ms):
+            return {f"opto{i+1}": u[int(t_ms)] for i in range(n_opto)}, t_ms
 
     elif args.mode == "OLmodel":
         # compute stimulus beforehand using model fit
@@ -180,6 +193,7 @@ def config_processor(args, sim, n_opto, path):
     proc = MyLIOP(dt_ms)
     sim.set_io_processor(proc)
 
+
 def load_fit_sys(path, args) -> glds.System:
     fit = dict(np.load(args.fit))
     # save system fit
@@ -212,7 +226,7 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
         devices=[
             (probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}),
         ]
-        + [(op_int, {"n_points": 1e4, "marker": '.'}) for op_int in op_ints],
+        + [(op_int, {"n_points": 1e4, "marker": "."}) for op_int in op_ints],
         scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
         figsize=(3, 4),
     )
@@ -263,22 +277,25 @@ def save_input(path, op_ints: list[opto.OptogeneticIntervention]):
         fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=op_ints[0].t_ms, **npzfile
     )
 
+
 # %%
 # l is *1024/1000 to convert from their 1024 Hz samples to ms
-def gp_noise(in1, mu=.2, σ=.1, l=30*1024/1000):
+def gp_noise(in1, mu=0.2, σ=0.1, l=30 * 1024 / 1000):
     """assuming no units, will be nA"""
     t = np.arange(len(in1))
     t1, t2 = np.meshgrid(t, t)
-    Σ = σ**2 * np.exp(-(t2 - t1)**2 / (2 * l**2))
+    Σ = σ**2 * np.exp(-((t2 - t1) ** 2) / (2 * l**2))
     rng = np.random.default_rng()
     noised = rng.multivariate_normal(in1 + mu, Σ)
     return noised * 5 / 6
+
 
 # a = np.zeros(400)
 # a[100:300] = 1
 # plt.plot(gp_noise(a))
 # plt.plot(gp_noise(np.zeros_like(a)))
 # %%
+
 
 def setup_aussel_net(args) -> Network:
     uis.maxN.set(args.maxN)
@@ -294,7 +311,10 @@ def setup_aussel_net(args) -> Network:
     noise_adder = gp_noise if args.noise else lambda x: x
 
     params = uis.get_process_params()
-    return sp3.net_setup(*params, plot_topo=args.plot_topo, noise_adder=noise_adder), params
+    return (
+        sp3.net_setup(*params, plot_topo=args.plot_topo, noise_adder=noise_adder),
+        params,
+    )
 
 
 if __name__ == "__main__":
@@ -420,10 +440,10 @@ if __name__ == "__main__":
         help="Show interactive plot windows after simulation",
     )
     parser.add_argument(
-        '--opto_slice',
-        action='store_true',
+        "--opto_slice",
+        action="store_true",
         default=False,
-        help='Whether to only plot fibers in the slice visualized',
+        help="Whether to only plot fibers in the slice visualized",
     )
 
     # args for wrapping with CLEOSim

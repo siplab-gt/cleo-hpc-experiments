@@ -3,15 +3,18 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-paper')
+# might make text in SVG editable:
+plt.rc('svg', fonttype='none')
 # %%
 fig = plt.figure(constrained_layout=False, figsize=(3, 4))
 subfigs = fig.subfigures(3, 1)
 # fig, ax = plt.subfigures(6, 1, sharex=True, figsize=(3, 4))
 axs = []
 for i, (folder, title) in enumerate([
-        ('olconst_results_noise', 'Open-loop (pulse)'),
+        ('olnaive_results_noise', 'Open-loop (naïve)'),
+        # ('olconst_results_noise', 'Open-loop (pulse)'),
         ('olmodel_results_noise', 'Open-loop (model-based)'),
-        ('cl_results_noise', 'Feedback control')
+        ('cl_results_noise2', 'Feedback control')
 ]):
     path = Path(folder)
     subfig = subfigs[i]
@@ -50,14 +53,14 @@ for i, (folder, title) in enumerate([
     ref = np.load(path / 'ref.npy')
     t_ms = np.load(path / 't_ms_tklfp.npy')
     tklfp = np.load(path / 'tklfp.npy')
-    ax2.plot(t_ms[:trial_len], ref[:trial_len], c='#c500cc', label='reference')
+    (line_ref,) = ax2.plot(t_ms[:trial_len], ref[:trial_len], c='#c500cc', label='reference')
     for i_trial in range(len(t_ms)//trial_len):
         i1 = i_trial * trial_len
         i2 = (i_trial + 1) * trial_len
-        ax2.plot(t_ms[:trial_len], tklfp[i1:i2], c='k', alpha=.2, lw=1, label='measured')
+        (line_meas,) = ax2.plot(t_ms[:trial_len], tklfp[i1:i2], c='k', alpha=.2, lw=1, label='measured')
     ax2.set(ylabel='TKLFP\n(μV)')
 
-axs[0][1].legend(loc='lower right')
+axs[0][1].legend(handles=[line_ref, line_meas], loc='lower right')
 
 ax2.tick_params('x', bottom=True, labelbottom=True)
 ax2.set(xlabel='Time (ms)')
