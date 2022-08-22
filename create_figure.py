@@ -46,7 +46,7 @@ for i, (folder, title) in enumerate([
         t1 = i_trial * trial_len
         t2 = (i_trial + 1) * trial_len
         i1, i2 = np.searchsorted(t, (t1, t2))
-        ax1.step(t[i1:i2]-t[i1], inputs[i1:i2], c=in_color, alpha=.2, label=in_name)
+        ax1.plot(t[i1:i2]-t[i1], inputs[i1:i2], c=in_color, lw=1, alpha=.2, label=in_name)
     ax1.set(ylabel=in_name)
 
     # TKLFP
