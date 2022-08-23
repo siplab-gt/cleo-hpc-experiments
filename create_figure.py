@@ -67,5 +67,15 @@ ax2.set(xlabel='Time (ms)')
 fig.savefig('results/sim-results.svg')
 
 # %%
-fig, ax = plt.subplots()
-ax.tick_params('x', top=True, labeltop=True)
+# comparing TKLFP and RWSLFP
+import seaborn as sns
+from aussel_model.model.single_process3 import lecture
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+rwslfp = -np.array(lecture('orig_results/LFP.txt')).flatten() * 1e6
+ax1.plot(np.arange(0, 399, step=1000/1024), rwslfp, c='k')
+ax1.set(ylabel='μV', title='Reference weighted sum LFP approximation')
+tklfp = np.load('orig_results/tklfp.npy')
+ax2.plot(np.arange(400), tklfp, c='k')
+ax2.set(ylabel='μV', xlabel='t (ms)', title='Teleńczuk kernel LFP approximation')
+sns.despine(fig)
+fig.savefig('results/rws_tk_lfp.svg', transparent=False)
