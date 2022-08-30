@@ -1,6 +1,8 @@
 # [Cleo](https://cleosim.rtfd.io) paper virtual experiment 3
 *evoking sharp wave-ripples with optogenetics*
 
+![results image](fig-case-study-3.png)
+
 This project takes the hippocampus model developed by Aussel et al. ([2018](https://link.springer.com/article/10.1007/s10827-018-0704-x), [2022](https://link.springer.com/epdf/10.1007/s10827-022-00829-5?sharing_token=Sw7RTIkQRaLgVO28K0KxNfe4RwlQNchNByi7wbcMAY7ikgvvZg602Tl3ZqpP40WLdqEJ2UxRZTBw0DOwGRH380A4Arj7YNkHR4M-sekgxxe7hOLNqxYR4Mo_zCbX_90PhEWk4ggVPRK-gbSfz4PGmOSwPO3auonOH3sXPFWmiG0%3D), [code](https://senselab.med.yale.edu/ModelDB/showmodel.cshtml?model=266796&file=/model_hipp_final/model_files/#tabs-1)), wraps it with [Cleo](https://cleosim.rtfd.io), and evokes SWRs with optogenetics rather than the original external current meant to model slow-wave sleep rhythms.
 
 ## Installation
