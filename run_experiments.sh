@@ -14,7 +14,7 @@ function get_last_dir () {
 
 # original
 #                 --f1=5 yields 200-ms pulse
-python run_sim.py --f1=5 --runtime=0.4 --mode=orig
+python run_sim.py --f1=5 --runtime=0.4 --mode=orig --target=cython
 ln -s $(get_last_dir) orig_results
 
 # fit
