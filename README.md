@@ -14,6 +14,11 @@ conda activate hipp2
 ```
 This creates an environment called `hipp2`&mdash;so called because the original simulation provided an environment called `hipp`.
 
+Then install the model files as a package:
+```bash
+pip install aussel_model
+```
+
 ## Running experiments
 
 Then, follow along with the experiments in `run_experiments.sh`. 
