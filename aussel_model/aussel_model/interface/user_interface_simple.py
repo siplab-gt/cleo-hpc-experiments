@@ -252,6 +252,10 @@ tab_parent.add(tab3,text='Epilepsy parameters')
 tab_parent.add(tab4,text='Inputs et outputs')
 
 tab_parent.pack(expand=1,fill='both')
+def conf(event):
+    tab_parent.config(height=interface.winfo_height(),width=interface.winfo_width()-145)
+
+interface.bind("<Configure>",conf)
 
 bquit=Button(interface,text='Quit',command=interface.destroy)
 bquit.place(x=10,y=560) 

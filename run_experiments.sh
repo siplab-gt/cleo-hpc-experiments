@@ -4,8 +4,13 @@
 # The experiment is to try to evoke ripples from 100 to 300
 # ms. The original model can do this with endogenous inputs.
 # We will use that ripple as the target for closed-loop 
-# control. Then we'll use the average closed-loop power as
-# a constant level for open-loop.
+# control after fitting a model to training data. We'll also
+# compare to two open-loop approaches--running a controller on 
+# the simulated system and the more naive approach of using the
+# reference signal itself. At first I tried a constant (square wave)
+# input, but that looked too good since it's the same shape as the 
+# 'Iext' stimulus that evoked the ripple in the first place, and what
+# are the chances that happens in a real experiment?
 # ======================================================= #
 
 function get_last_dir () {
@@ -17,6 +22,9 @@ function get_last_dir () {
 python run_sim.py --f1=5 --runtime=0.4 --mode=orig --target=cython
 ln -s $(get_last_dir) orig_results
 
+# ===============================================================
+# YOU CAN SKIP THIS PART IF YOU'RE LOOKING TO REPRODUCE THE PAPER
+# ===============================================================
 # fit
 #                    I just happened to use 13 seconds of training data
 python run_sim.py --mode=fit --runtime=13 --target=cython
