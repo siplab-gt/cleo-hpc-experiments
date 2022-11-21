@@ -7,7 +7,7 @@ This project takes the hippocampus model developed by Aussel et al. ([2018](http
 
 ## Installation
 
-Just use conda:
+Clone the repo, then use conda:
 ```bash
 conda create -f environment.yml
 conda activate hipp2
