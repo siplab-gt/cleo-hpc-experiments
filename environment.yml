@@ -85,4 +85,3 @@ dependencies:
     - typish==1.9.3
     - wcwidth==0.2.5
     - zipp==3.8.0
-prefix: /home/kyle/miniconda3/envs/hipp2
