@@ -184,10 +184,38 @@ def config_processor(args, sim, n_opto, path):
             sim.ctrlr.y_ref = sim.ref[int(t_ms)]
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms + 3
+    elif args.mode == "MPC":
+        from juliacall import main as jl
+        fit = dict(np.load(args.fit))
+        #initial state and estimate uncertainty
+        x_est = np.array([0, 0, 0, 0])
+        P = fit['P0']
+        R = fit['R']
+        A = fit['A']
+        B = fit['B']
+        C = fit['C']
 
+        sample = 3
+        def my_process(state, t_ms):
+            # sim.io_processor.sampling_period_ms = 3
+            #get measurement
+            lfp_uV = state["probe"]["lfp"]
+            lfp1 = lfp_uV[:144].mean()
+            lfp2 = lfp_uV[144:288].mean()
+            # assuming regular samples, can us t_ms directly as index
+            #use kalman filter
+            x_est, P = jl.KF_est(jl.Array(lfp2 - lfp1), jl.Array(P), R, jl.Array(x_est), optimal_u, A=jl.Array(A), B=jl.Array(B), C=jl.Array(C))
+
+            if int(t_ms) % sample == 0:
+                # call controller
+                optimal_u = jl.flex_mpc(jl.Array(x_est), jl.Array( np.array(yref) ), nu=1, sample=sample, A=jl.Array(A), B=jl.Array(B), C=jl.Array(C), ref_type=2)
+            return {f"opto{i+1}": optimal_u for i in range(n_opto)}, t_ms + 3
+
+ 
     # need to subclass so it's concrete
     class MyLIOP(cleosim.processing.LatencyIOProcessor):
         def process(self, state, t_ms):
+            
             return my_process(state, t_ms)
 
     proc = MyLIOP(dt_ms)
