@@ -13,7 +13,7 @@ from brian2 import Network, mm, ms, StateMonitor, prefs
 import cleosim
 from cleosim.electrodes import Probe, TKLFPSignal
 from cleosim import opto
-import ldsctrlest.gaussian as glds
+#import ldsctrlest.gaussian as glds
 
 from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
@@ -187,6 +187,8 @@ def config_processor(args, sim, n_opto, path):
     elif args.mode == "MPC":
         from juliacall import main as jl
         fit = dict(np.load(args.fit))
+        jl.include('md_kf.jl')
+        jl.include('mpc_called.jl')
         #initial state and estimate uncertainty
         x_est = np.array([0, 0, 0, 0])
         P = fit['P0']
