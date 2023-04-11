@@ -185,17 +185,33 @@ def config_processor(args, sim, n_opto, path):
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms + 3
     elif args.mode == "MPC":
-        from juliacall import main as jl
+        #from juliacall import main as jl
+        import juliacall; jl = juliacall.newmodule('some_name')
+
+        #load model
         fit = dict(np.load(args.fit))
+        #initial state and estimate uncertainty
+        # globals()['x_est'] = np.array([0, 0, 0, 0])
+        # globals()['P'] = fit['P0']
+        # globals()['R'] = fit['R']
+        # globals()['A'] = fit['A']
+        # globals()['B'] = fit['B']
+        # globals()['C'] = fit['C']
+        sim.x_est = np.array([0, 0, 0, 0])
+        sim.P = fit['P0']
+        sim.R = 1.86236633e-07 #fit['R'] - fix later
+        sim.A = fit['A']
+        sim.B = fit['B']
+        sim.C = fit['C']
+
+        sim.ref = ref
+
+        sim.optimal_u = 0.0
+
+        #load julia modules
         jl.include('md_kf.jl')
         jl.include('mpc_called.jl')
-        #initial state and estimate uncertainty
-        x_est = np.array([0, 0, 0, 0])
-        P = fit['P0']
-        R = fit['R']
-        A = fit['A']
-        B = fit['B']
-        C = fit['C']
+        
 
         sample = 3
         def my_process(state, t_ms):
@@ -204,14 +220,22 @@ def config_processor(args, sim, n_opto, path):
             lfp_uV = state["probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
+            print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
             # assuming regular samples, can us t_ms directly as index
-            #use kalman filter
-            x_est, P = jl.KF_est(jl.Array(lfp2 - lfp1), jl.Array(P), R, jl.Array(x_est), optimal_u, A=jl.Array(A), B=jl.Array(B), C=jl.Array(C))
 
             if int(t_ms) % sample == 0:
                 # call controller
-                optimal_u = jl.flex_mpc(jl.Array(x_est), jl.Array( np.array(yref) ), nu=1, sample=sample, A=jl.Array(A), B=jl.Array(B), C=jl.Array(C), ref_type=2)
-            return {f"opto{i+1}": optimal_u for i in range(n_opto)}, t_ms + 3
+                mpc_result = jl.flex_mpc(jl.Array(sim.x_est), jl.Array(sim.ref), nu=1, sample=sample, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C), ref_type=2)
+                print("\nmpc_res: ", mpc_result,"\n")
+                sim.optimal_u = mpc_result[0]
+                sim.ref = sim.ref[sample:]
+
+            sim.z = np.array([lfp2 - lfp1])
+            print("\nz:", sim.z, "\n")
+            #use kalman filter
+            sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
+            
+            return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3
 
  
     # need to subclass so it's concrete

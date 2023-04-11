@@ -1,5 +1,7 @@
+import Pkg; Pkg.add("JuMP")
+import Pkg; Pkg.add("OSQP")
 using JuMP
-using Plots
+#using Plots
 using LinearAlgebra
 
 #! Old model parameters
