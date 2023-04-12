@@ -276,3 +276,85 @@ function flex_mpc(x0, ref; nu=1, sample=250, A=A, B=B, C=C, ref_type=1)
     optimal_u = value.(u[:, 1])
     return optimal_u
 end
+
+# ? Open loop mpc function
+function open_loop_mpc(x0, ref; nu=1, sample=3, A=A, B=B, C=C, ref_type=1)
+    # if nu == 1
+    #     B = B1
+    # elseif nu == 2
+    #     B = B2
+    # end
+    print("\nref:", ref,"\n")
+    Tpred = length(ref)
+    print("\ngot length\n")
+    pred = length(ref)
+    ctr = Int(trunc(Int, length(ref)/sample)) #must be integer for indexing later
+    
+    # See if we were given a y or z reference
+    if ref_type == 1
+        zrefpad = ref
+        yDall = z2y.(zrefpad)
+    elseif ref_type == 2 
+        yDall = ref
+    end
+
+    #println(typeof(zrefpad))
+    neuron = Model(OSQP.Optimizer)
+    set_silent(neuron)
+    print("\ngot model\n")
+
+    #Define state variables
+    @variables(neuron, begin
+        x[i=1:4, t=1:Tpred]
+        0 ≤ u[1:nu, 1:(ctr)] .<= 70 #was ctr+1 ??? why
+        yD[i=1:1, t=1:Tpred]
+        # xD[i=1:4, t=1:Tpred], (start = 0)
+    end)
+    print("\ngot vars\n")
+
+    @expressions(
+        neuron,
+        begin
+            y, C*x
+            # x_error[t=1:Tpred], x[:, t] - xD[:, t]
+            # x_cost[t=1:Tpred], x_error[t]'*Q*x_error[t]
+            y_error[t=1:Tpred], y[:, t] - yD[:, t]
+            y_cost[t=1:Tpred], y_error'[t]*y_error[t]
+            # sampled_x_cost[t=1:pred], x_cost[t*sample]
+            #sampled_y_cost[t=1:pred], y_cost[t*sample]
+            u_cost[t=1:ctr], u[t]'*R*u[t] #was ctr + 1
+        end
+    )
+    print("\ngot expressions\n")
+
+    #fix first sample steps
+    @constraint(neuron, x[:, 2:(sample)] .== A*x[:, 1:sample-1] + B*u[:, 1])
+
+    #fix each sample period
+    for i in 1:(ctr-1)
+        @constraint(neuron, x[:, (sample*i+1):(sample*i+sample)] .== A*x[:, (sample*i):(sample*i+sample-1)] + B*u[:, (i+1)])
+    end
+
+    #fix rest of inputs 
+    @constraint(neuron, x[:, (ctr*sample+1):(Tpred)] .== A*x[:, (ctr*sample):(Tpred-1)] + B*u[:, (ctr)]) #was ctr+1
+    # yDall = z2y.(zrefpad)
+    # x_cost[t] returns a 1x1 matrix, which we need to index to get the value out
+    # J = @objective(neuron, Min, sum(sampled_x_cost[t] for t in 2:(pred)) + sum(u_cost[t] for t in 1:ctr+1))
+    J = @objective(neuron, Min, sum(y_cost[t] for t in 2:(Tpred)) + sum(u_cost[t] for t in 1:ctr))
+    # if nu == 2 
+    #     B = [B -B]
+    # end
+
+    x_current = x0
+
+    #for t in 1:steps - got rid of for loop since only optimizing once
+    fix.(x[:, 1], x_current; force=true)
+
+    #set desired trajectory and optimize
+    fix.(yD[:], yDall[1:Tpred], force=true)
+    optimize!(neuron)
+
+    #return first input for use in experiment
+    optimal_us_vec = value.(u[:, 1:ctr])
+    return optimal_us_vec
+end
