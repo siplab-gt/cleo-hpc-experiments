@@ -45,7 +45,6 @@ def main(args):
         # with the average orientation for the exc neurons in each region
         sim.inject(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
-    # op_ints = []
     fibers = None
     if args.mode != "orig":
         light_model = cleo.light.fiber473nm()
@@ -61,16 +60,6 @@ def main(args):
         coords[n_opto_col:, :2] = [2.5, -7] * mm
         coords[n_opto_col:, 2] = np.linspace(.5, 14.5, n_opto_col, endpoint=True) * mm
         drctn[n_opto_col:] = (-1, 0, 0)
-        # for j, (x, y, drctn) in enumerate(
-        #     [
-        #         [2.5, -6, (0, 1, 0)],
-        #         [2.5, -7, (-1, 0, 0)],
-        #     ]
-        # ):
-        #     for i in range(1, n_opto_col + 1):
-        #         pass
-        # z_mm = (i - 0.5) * 15 / n_opto_col
-        # i_tot = j * n_opto_col + i
         opsin = cleo.opto.chr2_4s()
         sim.inject(opsin, all_ngs_exc[0], all_ngs_inh[0])
         fibers = cleo.light.Light(
@@ -82,13 +71,6 @@ def main(args):
             max_Irr0_mW_per_mm2=args.maxIrr0,
         )
         sim.inject(fibers, all_ngs_exc[0], all_ngs_inh[0])
-        # sim.inject_stimulator(
-        #     op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}"
-        # )
-        # sim.inject_stimulator(
-        #     op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}"
-        # )
-        # op_ints.append(op_int)
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
     # sim.network.add(mon_Iopto)
     plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers)
@@ -103,7 +85,7 @@ def main(args):
 
         save_lfp(path, lfp)
         plot_lfp(path)
-        save_input(path, op_ints)
+        save_input(path, fibers)
         plot_input(path)
 
     uis.aborted = False
@@ -351,11 +333,11 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers=None):
     fig, ax = cleo.viz.plot(
         *all_ngs_exc,
         *all_ngs_inh,
-        zlim=(6.5, 9),
+        zlim=(6, 8.5),
         colors=colors,
         invert_z=False,
         devices=devices,
-        scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
+        scatterargs={"rasterized": True, "alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
         figsize=(4, 4),
         axis_scale_unit=mm,
     )
@@ -398,14 +380,14 @@ def save_lfp(path, lfp: TKLFPSignal):
     np.save(t_fname, lfp.t_ms)
 
 
-def save_input(path, op_ints: list[opto.OptogeneticIntervention]):
-    if len(op_ints) == 0:
+def save_input(path, fibers: cleo.light.Light):
+    if fibers is None:
         return
     fname = os.path.join(path, "input.npz")
     npzfile = np.load(fname)
-    Irr0_mW_per_mm2 = np.array(op_ints[0].values)
+    Irr0_mW_per_mm2 = np.array(fibers.values)[:, 0]
     np.savez_compressed(
-        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=op_ints[0].t_ms, **npzfile
+        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=fibers.t_ms, **npzfile
     )
 
 
@@ -432,9 +414,6 @@ def setup_aussel_net(args) -> Network:
     uis.maxN.set(args.maxN)
     uis.runtime.set(args.runtime)
     uis.f1.set(args.f1)
-    if args.smoke:
-        uis.maxN.set(500)
-        uis.runtime.set(0.01)
     if args.save_neuron_pos:
         uis.save_neuron_pos.set("True")
     if args.mode != "orig":
@@ -590,6 +569,10 @@ if __name__ == "__main__":
         ref = np.load(args.ref)
         assert len(ref) == 400
         args.runtime = len(ref) * args.n_trials / 1000
+    if args.smoke:
+        args.maxN = 500
+        args.runtime = 0.01
+        args.no_save = True
 
     with plt.style.context(["seaborn-v0_8-paper"]):
         main(args)

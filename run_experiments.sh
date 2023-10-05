@@ -11,7 +11,11 @@ function get_last_dir () {
     echo "$(ls -tp | grep /$ | head -1)"
 }
 
-# check that it's working
+# check that aussel_model is working
+python run_sim.py --smoke --show_plots
+
+# to get 3D figure
+python run_sim.py --runtime=0 --show_plots --mode=OLconst --opto_slice
 
 # original
 #                 --f1=5 yields 200-ms pulse
