@@ -13,7 +13,7 @@ from brian2 import Network, mm, ms, StateMonitor, prefs
 import cleosim
 from cleosim.electrodes import Probe, TKLFPSignal
 from cleosim import opto
-import ldsctrlest.gaussian as glds
+#import ldsctrlest.gaussian as glds
 
 from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
@@ -184,10 +184,119 @@ def config_processor(args, sim, n_opto, path):
             sim.ctrlr.y_ref = sim.ref[int(t_ms)]
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms + 3
+    elif args.mode == "MPC":
+        #from juliacall import main as jl
+        import juliacall; jl = juliacall.newmodule('some_name')
 
+        #load model
+        fit = dict(np.load(args.fit))
+        #initial state and estimate uncertainty
+        # globals()['x_est'] = np.array([0, 0, 0, 0])
+        # globals()['P'] = fit['P0']
+        # globals()['R'] = fit['R']
+        # globals()['A'] = fit['A']
+        # globals()['B'] = fit['B']
+        # globals()['C'] = fit['C']
+        sim.x_est = np.array([0, 0, 0, 0])
+        sim.P = fit['P0']
+        sim.R = 1.86236633e-07 #fit['R'] - fix later
+        sim.A = fit['A']
+        sim.B = fit['B']
+        sim.C = fit['C']
+
+        sim.ref = ref
+
+        sim.optimal_u = 0.0
+
+        #load julia modules
+        jl.include('md_kf.jl')
+        jl.include('mpc_called.jl')
+        
+
+        sample = 3
+        def my_process(state, t_ms):
+            # sim.io_processor.sampling_period_ms = 3
+            #get measurement
+            lfp_uV = state["probe"]["lfp"]
+            lfp1 = lfp_uV[:144].mean()
+            lfp2 = lfp_uV[144:288].mean()
+            print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
+            # assuming regular samples, can us t_ms directly as index
+
+            if int(t_ms) % sample == 0:
+                # call controller
+                mpc_result = jl.flex_mpc(jl.Array(sim.x_est), jl.Array(sim.ref), nu=1, sample=sample, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C), ref_type=2)
+                print("\nmpc_res: ", mpc_result,"\n")
+                sim.optimal_u = mpc_result[0]
+                sim.ref = sim.ref[sample:]
+
+            sim.z = np.array([lfp2 - lfp1])
+            print("\nz:", sim.z, "\n")
+            #use kalman filter
+            sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
+            
+            return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3
+    elif args.mode == "open_loop_MPC":
+        #from juliacall import main as jl
+        import juliacall; jl = juliacall.newmodule('some_name')
+
+        #load model
+        fit = dict(np.load(args.fit))
+        #initial state and estimate uncertainty
+        sim.x_est = np.array([0, 0, 0, 0])
+        sim.P = fit['P0']
+        sim.R = 1.86236633e-07 #fit['R'] - fix later
+        sim.A = fit['A']
+        sim.B = fit['B']
+        sim.C = fit['C']
+
+        sim.ref = ref
+
+        #sim.optimal_u = 0.0
+
+        #load julia modules
+        jl.include('md_kf.jl')
+        jl.include('mpc_called.jl')
+        
+        sample = 3 #attaching to sim so no scope issues
+
+        #get set of optimal inputs to use in the simulation
+        optimal_us_vec = jl.open_loop_mpc(jl.Array(sim.x_est), jl.Array(sim.ref), nu=1, sample=sample, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C), ref_type=2)
+        optimal_us_vec = [elem for elem in optimal_us_vec]
+
+        #pad inputs with a few at the end since due to reference and 
+        for i in range(sample+1):
+            optimal_us_vec.append( optimal_us_vec[-1] )
+
+        print("\nus vector:  ",optimal_us_vec,"\n")
+        def my_process(state, t_ms):
+            # sim.io_processor.sampling_period_ms = 3
+            #get measurement
+            lfp_uV = state["probe"]["lfp"]
+            lfp1 = lfp_uV[:144].mean()
+            lfp2 = lfp_uV[144:288].mean()
+            print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
+            # assuming regular samples, can us t_ms directly as index
+
+            if int(t_ms) % sample == 0:
+                # "call" controller
+                mpc_result = optimal_us_vec[0] #[( int(t_ms)/sample )] #indexing not sufficient if multiple trials?
+                optimal_us_vec.pop(0) # remove first input since it's been used
+                print("\nmpc_res: ", mpc_result,"\n")
+                sim.optimal_u = mpc_result#[0]
+                #sim.ref = sim.ref[sample:]
+
+            sim.z = np.array([lfp2 - lfp1])
+            print("\nz:", sim.z, "\n")
+            #use kalman filter
+            sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
+            
+            return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3 
+ 
     # need to subclass so it's concrete
     class MyLIOP(cleosim.processing.LatencyIOProcessor):
         def process(self, state, t_ms):
+            
             return my_process(state, t_ms)
 
     proc = MyLIOP(dt_ms)
