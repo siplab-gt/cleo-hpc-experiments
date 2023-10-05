@@ -6,7 +6,7 @@ plt.style.use('seaborn-paper')
 # might make text in SVG editable:
 plt.rc('svg', fonttype='none')
 # %%
-fig = plt.figure(constrained_layout=False, figsize=(3, 4))
+fig = plt.figure(constrained_layout=False, figsize=(4, 4))
 subfigs = fig.subfigures(3, 1)
 # fig, ax = plt.subfigures(6, 1, sharex=True, figsize=(3, 4))
 axs = []

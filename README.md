@@ -7,24 +7,33 @@ This project takes the hippocampus model developed by Aussel et al. ([2018](http
 
 ## Installation
 
-Clone the repo, then use conda:
+Clone the repo, then use mamba (or conda if you must 😁):
 ```bash
-conda create -f environment.yml
-conda activate hipp2
+mamba env create -f environment.yml
+mamba activate hipp2
 ```
 This creates an environment called `hipp2`&mdash;so called because the original simulation provided an environment called `hipp`.
 
+If you have problems installing from the `environment.yml` file, try this instead:
+```bash
+mamba create -n hipp2 python=3.9
+mamba install numpy scipy
+pip install cleosim==0.10.0
+```
+
 Then install the model files as a package:
 ```bash
-pip install aussel_model
+pip install -e ./aussel_model
 ```
+
+To run LQR control, you'll need [`ldsctrlest` Python bindings](https://cloctools.github.io/lds-ctrl-est/docs/getting-started/getting-started/#python-bindings-package-ldsctrlest).
+To run MPC, you'll need [Julia](https://julialang.org) with [JuMP](https://jump.dev) and [OSQP](https://osqp.org/docs/interfaces/julia.html) packages installed.
 
 ## Running experiments
 
 Then, follow along with the experiments in `run_experiments.sh`. 
 I haven't tested running that file all the way&mdash;rather, I added lines as I worked on the terminal. 
 So, I'd recommend running line by line, especially since the simulations take a while (those with full optogenetics take about 10 minutes on my decent laptop).
-With a future version of Cleo they should run faster, with more efficient multi-light-source optogenetics.
 
 ## Plotting
 

@@ -76,46 +76,7 @@ inh_eqs_curr = '''
     z_soma:metre
     I_exc=inputs1(t)*int(z_soma<100*scale)*int(z_soma>0*scale):amp
     taille:metre ** 2
-    Iopto1 : amp
-    Iopto2 : amp
-    Iopto3 : amp
-    Iopto4 : amp
-    Iopto5 : amp
-    Iopto6 : amp
-    Iopto7 : amp
-    Iopto8 : amp
-    Iopto9 : amp
-    Iopto10 : amp
-    Iopto11 : amp
-    Iopto12 : amp
-    Iopto13 : amp
-    Iopto14 : amp
-    Iopto15 : amp
-    Iopto16 : amp
-    Iopto17 : amp
-    Iopto18 : amp
-    Iopto19 : amp
-    Iopto20 : amp
-    Iopto = Iopto1 
-        + Iopto2
-        + Iopto3
-        + Iopto4
-        + Iopto5
-        + Iopto6
-        + Iopto7
-        + Iopto8
-        + Iopto9
-        + Iopto10
-        + Iopto11
-        + Iopto12
-        + Iopto13
-        + Iopto14
-        + Iopto15
-        + Iopto16
-        + Iopto17
-        + Iopto18
-        + Iopto19
-        + Iopto20 : amp
+    Iopto : amp
     '''
 
     # Pyramidal CAN
@@ -186,46 +147,7 @@ py_CAN_eqs_curr = '''
     dir_y:1
     dir_z:1
     I_exc=inputs1(t)*int(z_soma<100*scale)*int(z_soma>0*scale):amp
-    Iopto1 : amp
-    Iopto2 : amp
-    Iopto3 : amp
-    Iopto4 : amp
-    Iopto5 : amp
-    Iopto6 : amp
-    Iopto7 : amp
-    Iopto8 : amp
-    Iopto9 : amp
-    Iopto10 : amp
-    Iopto11 : amp
-    Iopto12 : amp
-    Iopto13 : amp
-    Iopto14 : amp
-    Iopto15 : amp
-    Iopto16 : amp
-    Iopto17 : amp
-    Iopto18 : amp
-    Iopto19 : amp
-    Iopto20 : amp
-    Iopto = Iopto1 
-        + Iopto2
-        + Iopto3
-        + Iopto4
-        + Iopto5
-        + Iopto6
-        + Iopto7
-        + Iopto8
-        + Iopto9
-        + Iopto10
-        + Iopto11
-        + Iopto12
-        + Iopto13
-        + Iopto14
-        + Iopto15
-        + Iopto16
-        + Iopto17
-        + Iopto18
-        + Iopto19
-        + Iopto20 : amp
+    Iopto : amp
     taille:metre ** 2
     '''
     

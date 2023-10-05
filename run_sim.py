@@ -10,9 +10,9 @@ import numpy as np
 from scipy.linalg import solve_discrete_are
 from brian2 import Network, mm, ms, StateMonitor, prefs
 
-import cleosim
-from cleosim.electrodes import Probe, TKLFPSignal
-from cleosim import opto
+import cleo
+from cleo.ephys import Probe, TKLFPSignal
+from cleo import opto
 #import ldsctrlest.gaussian as glds
 
 from aussel_model.model import single_process3 as sp3
@@ -29,56 +29,69 @@ def main(args):
     all_ngs_inh = [area[1][0] for area in all_ngs]
 
     assign_coords(all_ngs)
-    sim = cleosim.CLSimulator(net)
+    sim = cleo.CLSimulator(net)
 
     n_opto_col = 10
     n_opto_tot = 2 * n_opto_col
     config_processor(args, sim, n_opto_tot, path)
 
-    lfp = TKLFPSignal("lfp", save_history=True)
+    lfp = TKLFPSignal(name="lfp")
     # use same electrode coordinates, with the same 150um scale
-    probe = Probe("probe", elec_pos * 0.15 * mm, [lfp])
+    probe = Probe(elec_pos * 0.15 * mm, [lfp], save_history=True)
     for ng_exc, ng_inh in zip(all_ngs_exc, all_ngs_inh):
         orntn = orntn_for_ng(ng_exc)
         mean_orntn = np.mean(orntn, axis=0, keepdims=True)
         # inh groups don't have orientation information stored, so we will approximate
         # with the average orientation for the exc neurons in each region
-        sim.inject_recorder(probe, ng_exc, tklfp_type="exc", orientation=orntn)
-        sim.inject_recorder(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
-    op_ints = []
+        sim.inject(probe, ng_exc, tklfp_type="exc", orientation=orntn)
+        sim.inject(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
+    # op_ints = []
+    fibers = None
     if args.mode != "orig":
-        light_params = opto.default_blue
-        light_params["R0"] = args.R0 * mm  # bigger fiber radius
-        light_params["K"] *= args.Kfactor  # alter absorbance
-        light_params["S"] *= args.Sfactor  # alter scattering
-        for j, (x, y, drctn) in enumerate(
-            [
-                [2.5, -6, (0, 1, 0)],
-                [2.5, -7, (-1, 0, 0)],
-            ]
-        ):
-            for i in range(1, n_opto_col + 1):
-                z_mm = (i - 0.5) * 15 / n_opto_col
-                i_tot = j * n_opto_col + i
-                op_int = opto.OptogeneticIntervention(
-                    f"opto{i_tot}",
-                    opto.FourStateModel(opto.ChR2_four_state),
-                    light_params,
-                    (x, y, z_mm) * mm,
-                    drctn,
-                    save_history=True,
-                    max_Irr0_mW_per_mm2=args.maxIrr0,
-                )
-                sim.inject_stimulator(
-                    op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}"
-                )
-                sim.inject_stimulator(
-                    op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}"
-                )
-                op_ints.append(op_int)
+        light_model = cleo.light.fiber473nm()
+        light_model.R0 = args.R0 * mm  # bigger fiber radius
+        light_model.K *= args.Kfactor  # alter absorbance
+        light_model.S *= args.Sfactor  # alter scattering
+        coords = np.zeros((n_opto_tot, 3)) * mm
+        drctn = np.zeros((n_opto_tot, 3))
+        # set coords, direction
+        coords[:n_opto_col, :2] = [2.5, -6] * mm
+        coords[:n_opto_col, 2] = np.linspace(.5, 14.5, n_opto_col, endpoint=True) * mm
+        drctn[:n_opto_col] = (0, 1, 0)
+        coords[n_opto_col:, :2] = [2.5, -7] * mm
+        coords[n_opto_col:, 2] = np.linspace(.5, 14.5, n_opto_col, endpoint=True) * mm
+        drctn[n_opto_col:] = (-1, 0, 0)
+        # for j, (x, y, drctn) in enumerate(
+        #     [
+        #         [2.5, -6, (0, 1, 0)],
+        #         [2.5, -7, (-1, 0, 0)],
+        #     ]
+        # ):
+        #     for i in range(1, n_opto_col + 1):
+        #         pass
+        # z_mm = (i - 0.5) * 15 / n_opto_col
+        # i_tot = j * n_opto_col + i
+        opsin = cleo.opto.chr2_4s()
+        sim.inject(opsin, all_ngs_exc[0], all_ngs_inh[0])
+        fibers = cleo.light.Light(
+            name='fibers',
+            coords=coords,
+            direction=drctn,
+            light_model=light_model,
+            save_history=True,
+            max_Irr0_mW_per_mm2=args.maxIrr0,
+        )
+        sim.inject(fibers, all_ngs_exc[0], all_ngs_inh[0])
+        # sim.inject_stimulator(
+        #     op_int, all_ngs_exc[0], Iopto_var_name=f"Iopto{i_tot}"
+        # )
+        # sim.inject_stimulator(
+        #     op_int, all_ngs_inh[0], Iopto_var_name=f"Iopto{i_tot}"
+        # )
+        # op_ints.append(op_int)
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
     # sim.network.add(mon_Iopto)
-    plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints)
+    plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers)
 
     print(f"Setup time: {(time.time()-setup_start)} seconds")
 
@@ -132,7 +145,7 @@ def config_processor(args, sim, n_opto, path):
         def my_process(state, t_ms):
             return {f"opto{i+1}": u[int(t_ms)] for i in range(n_opto)}, t_ms
 
-    elif args.mode == "OLmodel":
+    elif args.mode == "OLLQR":
         # compute stimulus beforehand using model fit
         gsys = load_fit_sys(path, args)
         sys2sim = gsys.copy()
@@ -168,7 +181,7 @@ def config_processor(args, sim, n_opto, path):
             opto_val = sim.u[int(t_ms)]
             return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
 
-    elif args.mode == "CL":
+    elif args.mode == "LQR":
         gsys = load_fit_sys(path, args)
         ctrlr = glds.Controller(gsys, u_lb=0, u_ub=args.maxIrr0)
         ctrlr.Kc = lqr_gain(gsys, args.r)
@@ -177,7 +190,7 @@ def config_processor(args, sim, n_opto, path):
         sim.ctrlr = ctrlr
 
         def my_process(state, t_ms):
-            lfp_uV = state["probe"]["lfp"]
+            lfp_uV = state["Probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
             # assuming regular samples, can us t_ms directly as index
@@ -199,7 +212,8 @@ def config_processor(args, sim, n_opto, path):
         # globals()['C'] = fit['C']
         sim.x_est = np.array([0, 0, 0, 0])
         sim.P = fit['P0']
-        sim.R = 1.86236633e-07 #fit['R'] - fix later
+        # sim.R = 1.86236633e-07 #fit['R'] - fix later
+        sim.R = fit['R']
         sim.A = fit['A']
         sim.B = fit['B']
         sim.C = fit['C']
@@ -217,7 +231,7 @@ def config_processor(args, sim, n_opto, path):
         def my_process(state, t_ms):
             # sim.io_processor.sampling_period_ms = 3
             #get measurement
-            lfp_uV = state["probe"]["lfp"]
+            lfp_uV = state["Probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
             print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
@@ -236,7 +250,7 @@ def config_processor(args, sim, n_opto, path):
             sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
             
             return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3
-    elif args.mode == "open_loop_MPC":
+    elif args.mode == "OLMPC":
         #from juliacall import main as jl
         import juliacall; jl = juliacall.newmodule('some_name')
 
@@ -246,6 +260,7 @@ def config_processor(args, sim, n_opto, path):
         sim.x_est = np.array([0, 0, 0, 0])
         sim.P = fit['P0']
         sim.R = 1.86236633e-07 #fit['R'] - fix later
+        sim.R = fit['R']
         sim.A = fit['A']
         sim.B = fit['B']
         sim.C = fit['C']
@@ -272,7 +287,7 @@ def config_processor(args, sim, n_opto, path):
         def my_process(state, t_ms):
             # sim.io_processor.sampling_period_ms = 3
             #get measurement
-            lfp_uV = state["probe"]["lfp"]
+            lfp_uV = state["Probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
             print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
@@ -294,7 +309,7 @@ def config_processor(args, sim, n_opto, path):
             return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3 
  
     # need to subclass so it's concrete
-    class MyLIOP(cleosim.processing.LatencyIOProcessor):
+    class MyLIOP(cleo.ioproc.LatencyIOProcessor):
         def process(self, state, t_ms):
             
             return my_process(state, t_ms)
@@ -320,28 +335,35 @@ def lqr_gain(sys: glds.System, r: float):
     return np.linalg.inv(r + B.T @ P @ B) @ (B.T @ P @ A)
 
 
-def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, *op_ints):
+def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers=None):
     if args.opto_slice:
-        op_ints = [op_ints[4], op_ints[14]]
+        old_coords, old_dir = fibers.coords, fibers.direction
+        fibers.coords = fibers.coords[[4, 14]]
+        fibers.direction = fibers.direction[[4, 14]]
+    devices = [
+        (probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}),
+    ]
+    if fibers:
+        devices.append((fibers, {'n_points': 3e4, 'intensity': 0.6}))
     colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
     colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
     colors = colors_exc + colors_inh
-    fig, ax = cleosim.visualization.plot(
+    fig, ax = cleo.viz.plot(
         *all_ngs_exc,
         *all_ngs_inh,
         zlim=(6.5, 9),
         colors=colors,
         invert_z=False,
-        devices=[
-            (probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}),
-        ]
-        + [(op_int, {"n_points": 1e4, "marker": "."}) for op_int in op_ints],
+        devices=devices,
         scatterargs={"alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
-        figsize=(3, 4),
+        figsize=(4, 4),
+        axis_scale_unit=mm,
     )
     ax.set(zticks=[7, 8, 9])
-    ax.view_init(60, -105)
+    ax.view_init(60, -125)
     ax.get_legend().remove()
+    if args.opto_slice:
+        fibers.coords, fibers.direction = old_coords, old_dir
 
 
 def assign_coords(all_ngs):
@@ -351,7 +373,7 @@ def assign_coords(all_ngs):
     for i_area in range(4):  # EC, DG, CA3, CA1
         for i_type in range(2):  # exc, inh
             ng = all_ngs[i_area][i_type][0]
-            cleosim.coordinates.assign_coords(
+            cleo.coords.assign_xyz(
                 ng, ng.x_soma / mm, ng.y_soma / mm, ng.z_soma / mm
             )
 
@@ -427,7 +449,7 @@ def setup_aussel_net(args) -> Network:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run CLEOSim case study 3")
+    parser = argparse.ArgumentParser(description="Run cleo case study 3")
 
     parser.add_argument(
         "--smoke",
@@ -439,7 +461,7 @@ if __name__ == "__main__":
         "--mode",
         type=str,
         default="orig",
-        help="Select experiment mode: orig, OLconst, OLmodel, CL, or fit",
+        help="Select experiment mode: orig, OLconst, OLLQR, LQR, MPC, or fit",
     )
     parser.add_argument(
         "--target",
@@ -555,7 +577,7 @@ if __name__ == "__main__":
         help="Whether to only plot fibers in the slice visualized",
     )
 
-    # args for wrapping with CLEOSim
+    # args for wrapping with cleo
 
     # parser.add_argument("--model", required=True, help="Model type (resnet or alexnet)")
     # parser.add_argument("--niter", type=int, default=1000, help="Number of iterations")
@@ -569,7 +591,7 @@ if __name__ == "__main__":
         assert len(ref) == 400
         args.runtime = len(ref) * args.n_trials / 1000
 
-    with plt.style.context(["seaborn-paper"]):
+    with plt.style.context(["seaborn-v0_8-paper"]):
         main(args)
 
 # %%
