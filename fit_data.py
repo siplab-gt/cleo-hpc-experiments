@@ -20,14 +20,32 @@ def main(args):
     for results_dir in args.results_dirs:
         results_dir = Path(results_dir)
         in_npz = np.load(results_dir / "input.npz")
-        u_opto = in_npz["Irr0_mW_per_mm2"][1:]
+        u_opto = in_npz["Irr0_mW_per_mm2"]
+        # inexplicably, we have some missed samples
+        # maybe dt was occasionally just a little off, so t % dt != 0?
+        # or a hiccup in calling the network operation?
+        # we can either skip these 2 ms samples, divide the data into 
+        # segments, or interpolate
+        # I'll divide into segments
         u_opto = u_opto.reshape((1, -1))
-        # need transpose so time is in columns
-        u.append(u_opto)
+        t_ms = in_npz["t_opto_ms"]
+        assert np.all(np.diff(t_ms) < 3)
+        t_ms_tklfp = np.load(results_dir / "t_ms_tklfp.npy")
+        assert np.all(t_ms == t_ms_tklfp)
         z_tklfp = np.load(results_dir / "tklfp.npy")
         z_tklfp = z_tklfp.reshape((1, -1))
-        z.append(z_tklfp)
-        assert u_opto.shape[1] == z_tklfp.shape[1]
+        assert u_opto.shape[1] == z_tklfp.shape[1], (u_opto.shape[1], z_tklfp.shape[1])
+        # need transpose so time is in columns
+        i_skip_prev = 0
+        for i_skip in np.where([np.isclose(np.diff(t_ms), 2)])[1]:
+            u.append(u_opto[:, i_skip_prev:i_skip])
+            z.append(z_tklfp[:, i_skip_prev:i_skip])
+            i_skip_prev = i_skip + 1
+        u.append(u_opto[:, i_skip_prev:])
+        z.append(z_tklfp[:, i_skip_prev:])
+        print(f'Found {len(u)} segments in {results_dir}')
+        u = [u_opto]
+        z = [z_tklfp]
     if args.dry_run:
         return
 

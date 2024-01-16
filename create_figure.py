@@ -3,18 +3,16 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-paper')
-# might make text in SVG editable:
+# make text in SVG editable:
 plt.rc('svg', fonttype='none')
 # %%
 fig = plt.figure(constrained_layout=False, figsize=(4, 4))
 subfigs = fig.subfigures(3, 1)
-# fig, ax = plt.subfigures(6, 1, sharex=True, figsize=(3, 4))
 axs = []
 for i, (folder, title) in enumerate([
-        ('olnaive_results_noise', 'Open-loop (naïve)'),
-        # ('olconst_results_noise', 'Open-loop (pulse)'),
-        ('olmodel_results_noise', 'Open-loop (model-based)'),
-        ('cl_results_noise2', 'Feedback control')
+        ('olnaive_results', 'Open-loop (naïve)'),
+        ('lqr_results', 'LQR feedback control'),
+        ('mpc_results', 'Model-predictive feedback control (MPC)'),
 ]):
     path = Path(folder)
     subfig = subfigs[i]
@@ -39,7 +37,7 @@ for i, (folder, title) in enumerate([
         in_color = '#36827F'
         in_color = 'black'
     else:
-        t, inputs, in_name,  = in_npz['t_opto_ms'], in_npz['Irr0_mW_per_mm2'],  "$Irr_0$\n(mW/mm$^2$)"
+        t, inputs, in_name,  = in_npz['t_opto_ms'], in_npz['Irr0_mW_per_mm2'],  "Irr$_0$\n(mW/mm$^2$)"
         in_color = '#72b5f2'
     for i_trial in range(max(1, len(t)//trial_len)):
         # need to search for indices bc CL doesn't have exactly 1 sample/ms
@@ -64,13 +62,13 @@ axs[0][1].legend(handles=[line_ref, line_meas], loc='lower right')
 
 ax2.tick_params('x', bottom=True, labelbottom=True)
 ax2.set(xlabel='Time (ms)')
-fig.savefig('results/sim-results.svg')
+fig.savefig('results/sim-results.svg', bbox_inches="tight", transparent=True)
 
 # %%
 # comparing TKLFP and RWSLFP
 import seaborn as sns
 from aussel_model.model.single_process3 import lecture
-fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(6.5, 4))
 rwslfp = -np.array(lecture('orig_results/LFP.txt')).flatten() * 1e6
 ax1.plot(np.arange(0, 399, step=1000/1024), rwslfp, c='k')
 ax1.set(ylabel='μV', title='Reference weighted sum LFP approximation')
@@ -78,4 +76,5 @@ tklfp = np.load('orig_results/tklfp.npy')
 ax2.plot(np.arange(400), tklfp, c='k')
 ax2.set(ylabel='μV', xlabel='t (ms)', title='Teleńczuk kernel LFP approximation')
 sns.despine(fig)
-fig.savefig('results/rws_tk_lfp.svg', transparent=False)
+fig.savefig('results/rws_tk_lfp.pdf', transparent=True, bbox_inches='tight')
+# %%

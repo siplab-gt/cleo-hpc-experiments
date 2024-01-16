@@ -27,7 +27,7 @@ pip install -e ./aussel_model
 ```
 
 To run LQR control, you'll need [`ldsctrlest` Python bindings](https://cloctools.github.io/lds-ctrl-est/docs/getting-started/getting-started/#python-bindings-package-ldsctrlest).
-To run MPC, you'll need [Julia](https://julialang.org) with [JuMP](https://jump.dev) and [OSQP](https://osqp.org/docs/interfaces/julia.html) packages installed.
+To run MPC, you'll need [Julia](https://julialang.org) with [`JuMP`](https://jump.dev)`@1.4.0` and [`OSQP`](https://osqp.org/docs/interfaces/julia.html)`@0.8.0` packages installed.
 
 ## Running experiments
 

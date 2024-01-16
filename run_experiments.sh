@@ -20,24 +20,24 @@ python run_sim.py --runtime=0 --show_plots --mode=OLconst --opto_slice
 # original
 #                 --f1=5 yields 200-ms pulse
 python run_sim.py --f1=5 --runtime=0.4 --mode=orig --target=cython
-ln -s $(get_last_dir) orig_results
+ln -s "$(get_last_dir)" orig_results
 
 # naïve open-loop
 # --ref determines shape of stimulus
 python run_sim.py --mode=OLnaive --ref=orig_results/tklfp.npy --n_trials=10 --target=cython --noise
-ln -s $(get_last_dir) olnaive_results
+ln -s "$(get_last_dir)" olnaive_results
 
 # fit
 #                    I just happened to use 13 seconds of training data
 python run_sim.py --mode=fit --runtime=13 --target=cython --noise
-ln -s $(get_last_dir) fit_results
+ln -s "$(get_last_dir)" fit_results
 python fit_data.py fit_results --out=fit_results/fit.npz --iterEM=1000
 
 # LQR
 python run_sim.py --mode=LQR --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --n_trials=10 --target=cython --noise
-ln -s $(get_last_dir) cl_results
+ln -s "$(get_last_dir)" lqr_results
 
 # MPC
-python run_sim.py --mode=OLmodel --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --n_trials=10 --target=cython --noise
-ln -s $(get_last_dir) olmodel_results
+python run_sim.py --mode=MPC --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --n_trials=10 --target=cython --noise
+ln -s "$(get_last_dir)" mpc_results
 

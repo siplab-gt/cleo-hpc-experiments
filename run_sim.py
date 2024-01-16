@@ -13,7 +13,7 @@ from brian2 import Network, mm, ms, StateMonitor, prefs
 import cleo
 from cleo.ephys import Probe, TKLFPSignal
 from cleo import opto
-#import ldsctrlest.gaussian as glds
+import ldsctrlest.gaussian as glds
 
 from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
@@ -118,14 +118,14 @@ def config_processor(args, sim, n_opto, path):
                 opto_val = args.Irr0_OL
             else:
                 opto_val = 0
-            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
+            return {"fibers": opto_val}, t_ms
 
     elif args.mode == "OLnaive":
         u = -ref / np.max(np.abs(ref)) * args.maxIrr0
         u[u < 0] = 0
 
         def my_process(state, t_ms):
-            return {f"opto{i+1}": u[int(t_ms)] for i in range(n_opto)}, t_ms
+            return {"fibers": u[int(t_ms)]}, t_ms
 
     elif args.mode == "OLLQR":
         # compute stimulus beforehand using model fit
@@ -141,7 +141,7 @@ def config_processor(args, sim, n_opto, path):
 
         def my_process(state, t_ms):
             opto_val = sim.u[int(t_ms)]
-            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
+            return {"fibers": opto_val}, t_ms
 
     elif args.mode == "fit":
         n_tot = int(args.runtime * 1000)
@@ -161,7 +161,7 @@ def config_processor(args, sim, n_opto, path):
 
         def my_process(state, t_ms):
             opto_val = sim.u[int(t_ms)]
-            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms
+            return {"fibers": opto_val}, t_ms
 
     elif args.mode == "LQR":
         gsys = load_fit_sys(path, args)
@@ -178,7 +178,7 @@ def config_processor(args, sim, n_opto, path):
             # assuming regular samples, can us t_ms directly as index
             sim.ctrlr.y_ref = sim.ref[int(t_ms)]
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
-            return {f"opto{i+1}": opto_val for i in range(n_opto)}, t_ms + 3
+            return {"fibers": opto_val}, t_ms + 3
     elif args.mode == "MPC":
         #from juliacall import main as jl
         import juliacall; jl = juliacall.newmodule('some_name')
@@ -186,16 +186,10 @@ def config_processor(args, sim, n_opto, path):
         #load model
         fit = dict(np.load(args.fit))
         #initial state and estimate uncertainty
-        # globals()['x_est'] = np.array([0, 0, 0, 0])
-        # globals()['P'] = fit['P0']
-        # globals()['R'] = fit['R']
-        # globals()['A'] = fit['A']
-        # globals()['B'] = fit['B']
-        # globals()['C'] = fit['C']
         sim.x_est = np.array([0, 0, 0, 0])
         sim.P = fit['P0']
-        # sim.R = 1.86236633e-07 #fit['R'] - fix later
-        sim.R = fit['R']
+        # don't know why this needs to be a float
+        sim.R = fit['R'].flatten()[0]
         sim.A = fit['A']
         sim.B = fit['B']
         sim.C = fit['C']
@@ -231,7 +225,7 @@ def config_processor(args, sim, n_opto, path):
             #use kalman filter
             sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
             
-            return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3
+            return {"fibers": sim.optimal_u}, t_ms + 6
     elif args.mode == "OLMPC":
         #from juliacall import main as jl
         import juliacall; jl = juliacall.newmodule('some_name')
@@ -288,7 +282,7 @@ def config_processor(args, sim, n_opto, path):
             #use kalman filter
             sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
             
-            return {f"opto{i+1}": sim.optimal_u for i in range(n_opto)}, t_ms + 3 
+            return {"fibers": sim.optimal_u}, t_ms
  
     # need to subclass so it's concrete
     class MyLIOP(cleo.ioproc.LatencyIOProcessor):
@@ -385,7 +379,7 @@ def save_input(path, fibers: cleo.light.Light):
         return
     fname = os.path.join(path, "input.npz")
     npzfile = np.load(fname)
-    Irr0_mW_per_mm2 = np.array(fibers.values)[:, 0]
+    Irr0_mW_per_mm2 = np.array(fibers.values)
     np.savez_compressed(
         fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=fibers.t_ms, **npzfile
     )
