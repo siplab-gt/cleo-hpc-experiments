@@ -41,3 +41,8 @@ ln -s "$(get_last_dir)" lqr_results
 python run_sim.py --mode=MPC --fit=fit_results/fit.npz --ref=orig_results/tklfp.npy --n_trials=10 --target=cython --noise
 ln -s "$(get_last_dir)" mpc_results
 
+# ======================================================================
+# Validation, reproducing epilepsy figure from Aussel 2022 figure 5
+# ======================================================================
+python run_sim.py --mode=val --runtime=35 --target=cython
+ln -s "$(get_last_dir)" val_results

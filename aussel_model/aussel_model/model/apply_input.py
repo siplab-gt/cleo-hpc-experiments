@@ -71,7 +71,7 @@ def timedarray2array(t_array,tmax,dt, return_t=False):
     else:
         return res_array
 
-def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs, noise_adder=lambda x: x):
+def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,in_file_3,in_fs, noise_adder=lambda x: x, preprocess_inputs=True):
     record_dt=1./1024 *second
 #    print(input_type,A0,A1,dur,f1,runtime)
     global inputs1,inputs2,inputs3
@@ -81,12 +81,16 @@ def apply_input(input_type,A0,A1,dur,f1,duty_cycle,runtime,in_file_1,in_file_2,i
         input_2=lecture(in_file_2)
         input_3=lecture(in_file_3)
          
-
-        inputs_FR_1=get_FR(input_1,in_fs/Hz)
-        inputs_FR_2=get_FR(input_2,in_fs/Hz)
-        inputs_FR_3=get_FR(input_3,in_fs/Hz)
-    
-        inputs1,inputs2,inputs3=normalize(inputs_FR_1,inputs_FR_2,inputs_FR_3,1./in_fs,200)
+        if preprocess_inputs:
+            inputs_FR_1=get_FR(input_1,in_fs/Hz)
+            inputs_FR_2=get_FR(input_2,in_fs/Hz)
+            inputs_FR_3=get_FR(input_3,in_fs/Hz)
+        
+            inputs1,inputs2,inputs3=normalize(inputs_FR_1,inputs_FR_2,inputs_FR_3,1./in_fs,200)
+        else:
+            inputs1 = TimedArray(np.array(input_1) * Hz, dt=1./in_fs)
+            inputs2 = TimedArray(np.array(input_2) * Hz, dt=1./in_fs)
+            inputs3 = TimedArray(np.array(input_3) * Hz, dt=1./in_fs)
         
 
     elif input_type=='square':

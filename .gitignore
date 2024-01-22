@@ -5,3 +5,4 @@
 tmp/*
 **/*.egg-info/*
 fit_results*
+validation/aussel22-data/*.txt

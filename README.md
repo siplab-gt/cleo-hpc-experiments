@@ -38,3 +38,9 @@ So, I'd recommend running line by line, especially since the simulations take a 
 ## Plotting
 
 Some plots are generated automatically by the simulation. That code is in `plot_results.py`. The code I used to make the final summary figure is in `create_figure.py`. 
+
+## Validation experiment
+The `--mode=val` argument runs the model with epilepsy parameters to reproduce figure 5A of [Aussel *et al.*, 2022](https://link.springer.com/article/10.1007/s10827-022-00829-5)
+This relies on `validation/aussel22-data/input_epi_wake_{1|2|3}.txt`, which must be obtained by contacting Amélie Aussel, the author.
+These files contain firing rate inputs to the entorhinal cortex from three different afferent brain regions, produced (after some preprocessing) from sEEG recordings as described in the two papers.
+Code to produce a figure from these results is located at `validation/plot_data.py`.

@@ -13,7 +13,10 @@ from brian2 import Network, mm, ms, StateMonitor, prefs
 import cleo
 from cleo.ephys import Probe, TKLFPSignal
 from cleo import opto
-import ldsctrlest.gaussian as glds
+try:
+    import ldsctrlest.gaussian as glds
+except ModuleNotFoundError:
+    print("Warning: ldsctrlest not installed, so LQR control will not work")
 
 from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
@@ -46,7 +49,7 @@ def main(args):
         sim.inject(probe, ng_exc, tklfp_type="exc", orientation=orntn)
         sim.inject(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     fibers = None
-    if args.mode != "orig":
+    if args.mode not in ["orig", "val"]:
         light_model = cleo.light.fiber473nm()
         light_model.R0 = args.R0 * mm  # bigger fiber radius
         light_model.K *= args.Kfactor  # alter absorbance
@@ -107,7 +110,7 @@ def config_processor(args, sim, n_opto, path):
         ref = np.tile(np.load(args.ref), args.n_trials)
         np.save(os.path.join(path, "ref.npy"), ref)
 
-    if args.mode == "orig":
+    if args.mode in ["orig", "val"]:
         # this is equivalent to the RecordOnlyProcessor
         my_process = lambda state, t_ms: ({}, t_ms)
 
@@ -404,19 +407,36 @@ def gp_noise(in1, mu=0.2, σ=0.1, l=30 * 1024 / 1000):
 # %%
 
 
-def setup_aussel_net(args) -> Network:
+def setup_aussel_net(args) -> tuple[Network, list]:
+    uis.f1.set(args.f1)
+    kwargs = {}
+
+    if args.mode == 'val':
+        # pathological parameters from Aussel 2022, Fig 5
+        uis.sclerosis.set(0.6)
+        uis.sprouting.set(0.8)
+        uis.Ek.set(-90)
+        uis.tau_Cl.set(0.5)
+        uis.input_type.set('custom')
+        input_basename = 'validation/aussel22-data/input_epi_wake_?.txt'
+        uis.in_file_1.set(input_basename.replace('?', '1'))
+        uis.in_file_2.set(input_basename.replace('?', '2'))
+        uis.in_file_3.set(input_basename.replace('?', '3'))
+        kwargs["preprocess_inputs"] = False
+
     uis.maxN.set(args.maxN)
     uis.runtime.set(args.runtime)
-    uis.f1.set(args.f1)
     if args.save_neuron_pos:
         uis.save_neuron_pos.set("True")
     if args.mode != "orig":
         uis.A1.set(0)
-    noise_adder = gp_noise if args.noise else lambda x: x
+    if args.noise:
+        kwargs["noise_adder"] = gp_noise
+    kwargs["plot_topo"] = args.plot_topo
 
     params = uis.get_process_params()
     return (
-        sp3.net_setup(*params, plot_topo=args.plot_topo, noise_adder=noise_adder),
+        sp3.net_setup(*params, **kwargs),
         params,
     )
 
@@ -434,7 +454,7 @@ if __name__ == "__main__":
         "--mode",
         type=str,
         default="orig",
-        help="Select experiment mode: orig, OLconst, OLLQR, LQR, MPC, or fit",
+        help="Select experiment mode: orig, OLconst, OLLQR, LQR, MPC, fit, or val",
     )
     parser.add_argument(
         "--target",

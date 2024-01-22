@@ -336,7 +336,7 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
         all_CA1_py,all_CA1_inh=[CA1_py1,CA1_py2],[CA1_inh1,CA1_inh2]
     
     all_neuron_groups=[[all_EC_py,all_EC_inh],[all_DG_py,all_DG_inh],[all_CA3_py,all_CA3_inh],[all_CA1_py,all_CA1_inh]]
-    print('Adding synapses')
+    print('Adding synapses: ', end="")
     ####### Définition des connexions synaptiques au sein de chaque zone #################
         
     def create_syn(all_G_py,all_G_inh,all_p,sigE,sigI, all_var,co_type,all_g_max_i,all_g_max_e):
@@ -384,10 +384,15 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
     sigEstr, sigIstr='(2500*umetre)', '(350*umetre)'
     sigE, sigI='(2500*umetre)', '(350*umetre)'  #350  
     
+    print('EC, ', end="")
     all_syn_EC=create_syn(all_EC_py,all_EC_inh,all_p_intra[0],sigEstr,sigIstr,all_gains[0],co2,all_g_max_i,all_g_max_e)
+    print('DG, ', end="")
     all_syn_DG=create_syn(all_DG_py,all_DG_inh,all_p_intra[1],sigEstr,sigIstr,all_gains[1],co2,all_g_max_i,all_g_max_e)
+    print('CA3, ', end="")
     all_syn_CA3=create_syn(all_CA3_py,all_CA3_inh,all_p_intra[2],sigEstr,sigIstr,all_gains[2],co2,all_g_max_i,all_g_max_e)
+    print('CA1...', end="")
     all_syn_CA1=create_syn(all_CA1_py,all_CA1_inh,all_p_intra[3],sigEstr,sigIstr,all_gains[3],co2,all_g_max_i,all_g_max_e)
+    print('done')
                              
     all_syn_intra=[all_syn_EC,all_syn_DG,all_syn_CA3,all_syn_CA1]
     
@@ -440,15 +445,23 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
     #Du cortex entorhinal vers le gyrus denté ##
     sig_E='(1000*umetre)'  
 
+    print('Connecting synapses:')
+    print('  EC->DG')
     all_syn_EC_DG=connect_2zones(all_EC_py,all_DG_py,all_DG_inh,sig_E,all_p_inter[0][1],all_gains[0],co,all_g_max_e)
+    print('  EC->CA3')
     all_syn_EC_CA3=connect_2zones(all_EC_py,all_CA3_py,all_CA3_inh,sig_E,all_p_inter[0][2],all_gains[0],co,all_g_max_e)
+    print('  EC->CA1')
     all_syn_EC_CA1=connect_2zones(all_EC_py,all_CA1_py,all_CA1_inh,sig_E,all_p_inter[0][3],all_gains[0],co,all_g_max_e)
 
+    print('  DG->CA3')
     all_syn_DG_CA3=connect_2zones(all_DG_py,all_CA3_py,all_CA3_inh,sig_E,all_p_inter[1][2],all_gains[1],co,all_g_max_e)
+    print('  DG->CA1')
     all_syn_DG_CA1=connect_2zones(all_DG_py,all_CA1_py,all_CA1_inh,sig_E,all_p_inter[1][3],all_gains[1],co,all_g_max_e)
     
+    print('  CA3->CA1')
     all_syn_CA3_CA1=connect_2zones(all_CA3_py,all_CA1_py,all_CA1_inh,sig_E,all_p_inter[2][3],all_gains[2],co,all_g_max_e)  
       
+    print('  CA1->EC')
     all_syn_CA1_EC=connect_2zones(all_CA1_py,all_EC_py,all_EC_inh,sig_E,all_p_inter[3][0],all_gains[3],co,all_g_max_e)   
 
     all_syn_inter=[all_syn_EC_DG,all_syn_EC_CA3,all_syn_EC_CA1,all_syn_DG_CA3,all_syn_DG_CA1,all_syn_CA3_CA1,all_syn_CA1_EC]
