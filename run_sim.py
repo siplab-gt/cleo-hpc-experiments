@@ -13,6 +13,7 @@ from brian2 import Network, mm, ms, StateMonitor, prefs
 import cleo
 from cleo.ephys import Probe, TKLFPSignal
 from cleo import opto
+
 try:
     import ldsctrlest.gaussian as glds
 except ModuleNotFoundError:
@@ -58,15 +59,15 @@ def main(args):
         drctn = np.zeros((n_opto_tot, 3))
         # set coords, direction
         coords[:n_opto_col, :2] = [2.5, -6] * mm
-        coords[:n_opto_col, 2] = np.linspace(.5, 14.5, n_opto_col, endpoint=True) * mm
+        coords[:n_opto_col, 2] = np.linspace(0.5, 14.5, n_opto_col, endpoint=True) * mm
         drctn[:n_opto_col] = (0, 1, 0)
         coords[n_opto_col:, :2] = [2.5, -7] * mm
-        coords[n_opto_col:, 2] = np.linspace(.5, 14.5, n_opto_col, endpoint=True) * mm
+        coords[n_opto_col:, 2] = np.linspace(0.5, 14.5, n_opto_col, endpoint=True) * mm
         drctn[n_opto_col:] = (-1, 0, 0)
         opsin = cleo.opto.chr2_4s()
         sim.inject(opsin, all_ngs_exc[0], all_ngs_inh[0])
         fibers = cleo.light.Light(
-            name='fibers',
+            name="fibers",
             coords=coords,
             direction=drctn,
             light_model=light_model,
@@ -183,114 +184,156 @@ def config_processor(args, sim, n_opto, path):
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
             return {"fibers": opto_val}, t_ms + 3
     elif args.mode == "MPC":
-        #from juliacall import main as jl
-        import juliacall; jl = juliacall.newmodule('some_name')
+        # from juliacall import main as jl
+        import juliacall
 
-        #load model
+        jl = juliacall.newmodule("some_name")
+
+        # load model
         fit = dict(np.load(args.fit))
-        #initial state and estimate uncertainty
+        # initial state and estimate uncertainty
         sim.x_est = np.array([0, 0, 0, 0])
-        sim.P = fit['P0']
+        sim.P = fit["P0"]
         # don't know why this needs to be a float
-        sim.R = fit['R'].flatten()[0]
-        sim.A = fit['A']
-        sim.B = fit['B']
-        sim.C = fit['C']
+        sim.R = fit["R"].flatten()[0]
+        sim.A = fit["A"]
+        sim.B = fit["B"]
+        sim.C = fit["C"]
 
         sim.ref = ref
 
         sim.optimal_u = 0.0
 
-        #load julia modules
-        jl.include('md_kf.jl')
-        jl.include('mpc_called.jl')
-        
+        # load julia modules
+        jl.include("md_kf.jl")
+        jl.include("mpc_called.jl")
 
         sample = 3
+
         def my_process(state, t_ms):
             # sim.io_processor.sampling_period_ms = 3
-            #get measurement
+            # get measurement
             lfp_uV = state["Probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
-            print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
+            print("\nLFP1/2: ", lfp1, "     2: ", lfp2, "\n")
             # assuming regular samples, can us t_ms directly as index
 
             if int(t_ms) % sample == 0:
                 # call controller
-                mpc_result = jl.flex_mpc(jl.Array(sim.x_est), jl.Array(sim.ref), nu=1, sample=sample, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C), ref_type=2)
-                print("\nmpc_res: ", mpc_result,"\n")
+                mpc_result = jl.flex_mpc(
+                    jl.Array(sim.x_est),
+                    jl.Array(sim.ref),
+                    nu=1,
+                    sample=sample,
+                    A=jl.Array(sim.A),
+                    B=jl.Array(sim.B),
+                    C=jl.Array(sim.C),
+                    ref_type=2,
+                )
+                print("\nmpc_res: ", mpc_result, "\n")
                 sim.optimal_u = mpc_result[0]
                 sim.ref = sim.ref[sample:]
 
             sim.z = np.array([lfp2 - lfp1])
             print("\nz:", sim.z, "\n")
-            #use kalman filter
-            sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
-            
+            # use kalman filter
+            sim.x_est, sim.P = jl.KF_est(
+                jl.Array(sim.z),
+                jl.Array(sim.P),
+                sim.R,
+                jl.Array(sim.x_est),
+                sim.optimal_u,
+                A=jl.Array(sim.A),
+                B=jl.Array(sim.B),
+                C=jl.Array(sim.C),
+            )
+
             return {"fibers": sim.optimal_u}, t_ms + 6
     elif args.mode == "OLMPC":
-        #from juliacall import main as jl
-        import juliacall; jl = juliacall.newmodule('some_name')
+        # from juliacall import main as jl
+        import juliacall
 
-        #load model
+        jl = juliacall.newmodule("some_name")
+
+        # load model
         fit = dict(np.load(args.fit))
-        #initial state and estimate uncertainty
+        # initial state and estimate uncertainty
         sim.x_est = np.array([0, 0, 0, 0])
-        sim.P = fit['P0']
-        sim.R = 1.86236633e-07 #fit['R'] - fix later
-        sim.R = fit['R']
-        sim.A = fit['A']
-        sim.B = fit['B']
-        sim.C = fit['C']
+        sim.P = fit["P0"]
+        sim.R = 1.86236633e-07  # fit['R'] - fix later
+        sim.R = fit["R"]
+        sim.A = fit["A"]
+        sim.B = fit["B"]
+        sim.C = fit["C"]
 
         sim.ref = ref
 
-        #sim.optimal_u = 0.0
+        # sim.optimal_u = 0.0
 
-        #load julia modules
-        jl.include('md_kf.jl')
-        jl.include('mpc_called.jl')
-        
-        sample = 3 #attaching to sim so no scope issues
+        # load julia modules
+        jl.include("md_kf.jl")
+        jl.include("mpc_called.jl")
 
-        #get set of optimal inputs to use in the simulation
-        optimal_us_vec = jl.open_loop_mpc(jl.Array(sim.x_est), jl.Array(sim.ref), nu=1, sample=sample, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C), ref_type=2)
+        sample = 3  # attaching to sim so no scope issues
+
+        # get set of optimal inputs to use in the simulation
+        optimal_us_vec = jl.open_loop_mpc(
+            jl.Array(sim.x_est),
+            jl.Array(sim.ref),
+            nu=1,
+            sample=sample,
+            A=jl.Array(sim.A),
+            B=jl.Array(sim.B),
+            C=jl.Array(sim.C),
+            ref_type=2,
+        )
         optimal_us_vec = [elem for elem in optimal_us_vec]
 
-        #pad inputs with a few at the end since due to reference and 
-        for i in range(sample+1):
-            optimal_us_vec.append( optimal_us_vec[-1] )
+        # pad inputs with a few at the end since due to reference and
+        for i in range(sample + 1):
+            optimal_us_vec.append(optimal_us_vec[-1])
 
-        print("\nus vector:  ",optimal_us_vec,"\n")
+        print("\nus vector:  ", optimal_us_vec, "\n")
+
         def my_process(state, t_ms):
             # sim.io_processor.sampling_period_ms = 3
-            #get measurement
+            # get measurement
             lfp_uV = state["Probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
-            print("\nLFP1/2: ", lfp1, "     2: ", lfp2,"\n")
+            print("\nLFP1/2: ", lfp1, "     2: ", lfp2, "\n")
             # assuming regular samples, can us t_ms directly as index
 
             if int(t_ms) % sample == 0:
                 # "call" controller
-                mpc_result = optimal_us_vec[0] #[( int(t_ms)/sample )] #indexing not sufficient if multiple trials?
-                optimal_us_vec.pop(0) # remove first input since it's been used
-                print("\nmpc_res: ", mpc_result,"\n")
-                sim.optimal_u = mpc_result#[0]
-                #sim.ref = sim.ref[sample:]
+                mpc_result = optimal_us_vec[
+                    0
+                ]  # [( int(t_ms)/sample )] #indexing not sufficient if multiple trials?
+                optimal_us_vec.pop(0)  # remove first input since it's been used
+                print("\nmpc_res: ", mpc_result, "\n")
+                sim.optimal_u = mpc_result  # [0]
+                # sim.ref = sim.ref[sample:]
 
             sim.z = np.array([lfp2 - lfp1])
             print("\nz:", sim.z, "\n")
-            #use kalman filter
-            sim.x_est, sim.P = jl.KF_est(jl.Array(sim.z), jl.Array(sim.P), sim.R, jl.Array(sim.x_est), sim.optimal_u, A=jl.Array(sim.A), B=jl.Array(sim.B), C=jl.Array(sim.C))
-            
+            # use kalman filter
+            sim.x_est, sim.P = jl.KF_est(
+                jl.Array(sim.z),
+                jl.Array(sim.P),
+                sim.R,
+                jl.Array(sim.x_est),
+                sim.optimal_u,
+                A=jl.Array(sim.A),
+                B=jl.Array(sim.B),
+                C=jl.Array(sim.C),
+            )
+
             return {"fibers": sim.optimal_u}, t_ms
- 
+
     # need to subclass so it's concrete
     class MyLIOP(cleo.ioproc.LatencyIOProcessor):
         def process(self, state, t_ms):
-            
             return my_process(state, t_ms)
 
     proc = MyLIOP(dt_ms)
@@ -323,7 +366,7 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers=None):
         (probe, {"size": 5, "color": (0.1, 0.1, 0.1, 0.5), "marker": "."}),
     ]
     if fibers:
-        devices.append((fibers, {'n_points': 3e4, 'intensity': 0.6}))
+        devices.append((fibers, {"n_points": 3e4, "intensity": 0.6}))
     colors_exc = ["#fb9a99", "#fdbf6f", "#b2df8a", "#cab2d6"]
     colors_inh = ["#e31a1c", "#ff7f00", "#33a02c", "#6a3d9a"]
     colors = colors_exc + colors_inh
@@ -334,7 +377,12 @@ def plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers=None):
         colors=colors,
         invert_z=False,
         devices=devices,
-        scatterargs={"rasterized": True, "alpha": 0.8, "marker": ".", "s": 2 * 10000 / args.maxN},
+        scatterargs={
+            "rasterized": True,
+            "alpha": 0.8,
+            "marker": ".",
+            "s": 2 * 10000 / args.maxN,
+        },
         figsize=(4, 4),
         axis_scale_unit=mm,
     )
@@ -352,9 +400,7 @@ def assign_coords(all_ngs):
     for i_area in range(4):  # EC, DG, CA3, CA1
         for i_type in range(2):  # exc, inh
             ng = all_ngs[i_area][i_type][0]
-            cleo.coords.assign_xyz(
-                ng, ng.x_soma / mm, ng.y_soma / mm, ng.z_soma / mm
-            )
+            cleo.coords.assign_xyz(ng, ng.x_soma / mm, ng.y_soma / mm, ng.z_soma / mm)
 
 
 def orntn_for_ng(ng):
@@ -411,17 +457,17 @@ def setup_aussel_net(args) -> tuple[Network, list]:
     uis.f1.set(args.f1)
     kwargs = {}
 
-    if args.mode == 'val':
+    if args.mode == "val":
         # pathological parameters from Aussel 2022, Fig 5
         uis.sclerosis.set(0.6)
         uis.sprouting.set(0.8)
         uis.Ek.set(-90)
         uis.tau_Cl.set(0.5)
-        uis.input_type.set('custom')
-        input_basename = 'validation/aussel22-data/input_epi_wake_?.txt'
-        uis.in_file_1.set(input_basename.replace('?', '1'))
-        uis.in_file_2.set(input_basename.replace('?', '2'))
-        uis.in_file_3.set(input_basename.replace('?', '3'))
+        uis.input_type.set("custom")
+        input_basename = "validation/aussel22-data/input_epi_wake_?.txt"
+        uis.in_file_1.set(input_basename.replace("?", "1"))
+        uis.in_file_2.set(input_basename.replace("?", "2"))
+        uis.in_file_3.set(input_basename.replace("?", "3"))
         kwargs["preprocess_inputs"] = False
 
     uis.maxN.set(args.maxN)
