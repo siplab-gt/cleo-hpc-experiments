@@ -8,66 +8,63 @@ from scipy import signal
 # Set working directory to the location of this file
 file_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(file_dir)
-
-# %%
-
 data_dir = "aussel22-data"
 
-
-def norm(signal):
-    return (signal - signal.mean()) / np.abs(signal).max()
-
-
-def band_powers(lfp, out_samp_rate=1000, fname=None):
-    """returns power over time (Tx6 array)"""
-    band_names = ["theta", "beta2", "gamma", "SWR"]
-    band_lim1 = [4, 23, 30, 150]
-    band_lim2 = [12, 30, 100, 250]
-    f, t, Sxx = signal.spectrogram(lfp, 1024, nperseg=None)
-    print(Sxx.shape)
-    fig, (ax1, ax2) = plt.subplots(2, 1)
-    ax1.pcolormesh(t, f, Sxx, cmap="magma")
-    # plt.ylim(0, 250)
-    for i_band in range(len(band_names))[:1]:
-        f_i_band = np.logical_and(f > band_lim1[i_band], f < band_lim2[i_band])
-        Sxx_for_band = Sxx[f_i_band, :].sum(axis=0)
-        # Sxx_for_band_rel = Sxx_for_band / Sxx[~f_i_band, :].sum(axis=0)
-        # Sxx_for_band_rel = Sxx_for_band / Sxx.sum(axis=0)
-        # Sxx_for_band_norm = norm(Sxx_for_band)
-        Sxx_for_band_norm = Sxx_for_band / Sxx_for_band.max()
-        # Sxx_for_band_rel_norm = norm(Sxx_for_band_rel)
-        # Sxx_for_band_rel_norm = Sxx_for_band_rel / Sxx_for_band_rel.max()
-        ax2.plot(t, Sxx_for_band_norm + i_band, label=band_names[i_band])
-    ax2.legend()
+# # %%
+# def norm(signal):
+#     return (signal - signal.mean()) / np.abs(signal).max()
 
 
-for filename in os.listdir(data_dir):
-    file_path = os.path.join(data_dir, filename)
-    fig, ax = plt.subplots()
-    if not os.path.isfile(file_path):
-        continue
-    try:
-        data = np.loadtxt(file_path)
-    except ValueError:
-        # in case of printed list instead of numpy format
-        # don't use np.loadtxt
-        with open(file_path, "r") as f:
-            data = f.read()
-        data = np.array(ast.literal_eval(data))
-    ax.plot(data)
-    ax.set(title=filename)
-    # band_powers(data)
+# def band_powers(lfp, out_samp_rate=1000, fname=None):
+#     """returns power over time (Tx6 array)"""
+#     band_names = ["theta", "beta2", "gamma", "SWR"]
+#     band_lim1 = [4, 23, 30, 150]
+#     band_lim2 = [12, 30, 100, 250]
+#     f, t, Sxx = signal.spectrogram(lfp, 1024, nperseg=None)
+#     print(Sxx.shape)
+#     fig, (ax1, ax2) = plt.subplots(2, 1)
+#     ax1.pcolormesh(t, f, Sxx, cmap="magma")
+#     # plt.ylim(0, 250)
+#     for i_band in range(len(band_names))[:1]:
+#         f_i_band = np.logical_and(f > band_lim1[i_band], f < band_lim2[i_band])
+#         Sxx_for_band = Sxx[f_i_band, :].sum(axis=0)
+#         # Sxx_for_band_rel = Sxx_for_band / Sxx[~f_i_band, :].sum(axis=0)
+#         # Sxx_for_band_rel = Sxx_for_band / Sxx.sum(axis=0)
+#         # Sxx_for_band_norm = norm(Sxx_for_band)
+#         Sxx_for_band_norm = Sxx_for_band / Sxx_for_band.max()
+#         # Sxx_for_band_rel_norm = norm(Sxx_for_band_rel)
+#         # Sxx_for_band_rel_norm = Sxx_for_band_rel / Sxx_for_band_rel.max()
+#         ax2.plot(t, Sxx_for_band_norm + i_band, label=band_names[i_band])
+#     ax2.legend()
 
-plt.show()
+
+# for filename in os.listdir(data_dir):
+#     file_path = os.path.join(data_dir, filename)
+#     fig, ax = plt.subplots()
+#     if not os.path.isfile(file_path):
+#         continue
+#     try:
+#         data = np.loadtxt(file_path)
+#     except ValueError:
+#         # in case of printed list instead of numpy format
+#         # don't use np.loadtxt
+#         with open(file_path, "r") as f:
+#             data = f.read()
+#         data = np.array(ast.literal_eval(data))
+#     ax.plot(data)
+#     ax.set(title=filename)
+#     # band_powers(data)
+
+# plt.show()
 
 
 # %%
-def theta_power(lfp):
+def theta_power(lfp, fs=1024):
     theta_llim = 4
     theta_ulim = 10
     nperseg = 2048
     noverlap = nperseg * 7 // 8
-    f, t, Sxx = signal.spectrogram(lfp, 1024, nperseg=nperseg, noverlap=noverlap)
+    f, t, Sxx = signal.spectrogram(lfp, fs, nperseg=nperseg, noverlap=noverlap)
     f_i_band = np.logical_and(f >= theta_llim, f < theta_ulim)
     return Sxx[f_i_band, :].sum(axis=0), t
 
@@ -119,6 +116,25 @@ for i, ax in enumerate(axs):
 # confirmed that the inputs are now loaded correctly without preprocessing
 inputs = np.load("../results_2024-01-18 14:30:02.512051/input.npz")
 fig, ax = plt.subplots()
-ax.plot(inputs['inputs1'])
+ax.plot(inputs["inputs1"])
 inputs.keys()
-ax.plot(np.loadtxt('./aussel22-data/input_epi_wake_1.txt'))
+ax.plot(np.loadtxt("./aussel22-data/input_epi_wake_1.txt"))
+
+# %%
+
+with plt.style.context(["default"]):
+    aspect = 1.5
+    height = 4
+    fig, (ax1, ax2) = plt.subplots(
+        1, 2, layout="tight", figsize=(aspect * height, height)
+    )
+    t_ms_tklfp = np.load("../val_results/t_ms_tklfp.npy")
+    tklfp = np.load("../val_results/tklfp.npy")
+    tklfp_norm = tklfp / np.abs(tklfp[t_ms_tklfp < 5000]).max()
+    ax1.plot(t_ms_tklfp / 1000, -tklfp_norm, c="#c500cc", lw=1, rasterized=True)
+    ax1.set(ylabel="Normalized (-TKLFP)", xlabel="Time (s)")
+    theta, t = theta_power(tklfp)
+    ax2.plot(t, theta / theta.max(), c="#c500cc", rasterized=True)
+    ax2.set(ylabel="Normalized theta band power", xlabel="Time (s)")
+
+    fig.savefig("../results/val.svg", bbox_inches="tight", transparent=True)
