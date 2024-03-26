@@ -39,7 +39,7 @@ dependencies:
       # - aussel-model==0.0.0
       - bidict==0.22.1
       - brian2==2.5.4
-      - cleosim==0.10.0
+      - cleosim==0.14.1
       - contourpy==1.1.1
       - cycler==0.12.0
       - cython==3.0.3
