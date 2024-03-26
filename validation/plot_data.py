@@ -1,8 +1,10 @@
 # %%
-import os
-import numpy as np
 import ast
+import os
+
+import cleo.utilities
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy import signal
 
 # Set working directory to the location of this file
@@ -59,13 +61,23 @@ data_dir = "aussel22-data"
 
 
 # %%
-def theta_power(lfp, fs=1024):
-    theta_llim = 4
-    theta_ulim = 10
-    nperseg = 2048
-    noverlap = nperseg * 7 // 8
-    f, t, Sxx = signal.spectrogram(lfp, fs, nperseg=nperseg, noverlap=noverlap)
-    f_i_band = np.logical_and(f >= theta_llim, f < theta_ulim)
+def theta_power(
+    lfp,
+    fs=1024,
+    theta_llim=4,
+    theta_ulim=10,
+    nperseg=2048,
+    poverlap=7 / 8,
+    window=("tukey", 0.25),
+):
+    if poverlap:
+        noverlap = int(nperseg * poverlap)
+    else:
+        noverlap = None
+    f, t, Sxx = signal.spectrogram(
+        lfp, fs, nperseg=nperseg, noverlap=noverlap, window=window
+    )
+    f_i_band = np.logical_and(f >= theta_llim, f <= theta_ulim)
     return Sxx[f_i_band, :].sum(axis=0), t
 
 
@@ -121,20 +133,50 @@ inputs.keys()
 ax.plot(np.loadtxt("./aussel22-data/input_epi_wake_1.txt"))
 
 # %%
+import cleo
 
-with plt.style.context(["default"]):
+import aussel_model.model
+import aussel_model.model.apply_input
+
+lfp_orig = np.array(aussel_model.model.apply_input.lecture("../val_results/LFP.txt")[0])
+t_ms_orig = np.arange(len(lfp_orig)) / 1024 * 1000
+t_ms_rwslfp = np.load("../val_results/t_ms_rwslfp.npy")
+rwslfp = np.load("../val_results/rwslfp.npy")
+t_ms_tklfp = np.load("../val_results/t_ms_tklfp.npy")
+tklfp = np.load("../val_results/tklfp.npy")
+
+plt.style.use("default")
+plt.rcParams.update({"svg.fonttype": "none", "savefig.dpi": 300})
+
+for t_ms, lfp, name in [
+    (t_ms_orig, lfp_orig, "sclfp"),
+    (t_ms_rwslfp, rwslfp, "rwslfp"),
+    (t_ms_tklfp, tklfp, "tklfp"),
+]:
     aspect = 1.5
     height = 4
     fig, (ax1, ax2) = plt.subplots(
         1, 2, layout="tight", figsize=(aspect * height, height)
     )
-    t_ms_tklfp = np.load("../val_results/t_ms_tklfp.npy")
-    tklfp = np.load("../val_results/tklfp.npy")
-    tklfp_norm = tklfp / np.abs(tklfp[t_ms_tklfp < 5000]).max()
-    ax1.plot(t_ms_tklfp / 1000, -tklfp_norm, c="#c500cc", lw=1, rasterized=True)
-    ax1.set(ylabel="Normalized (-TKLFP)", xlabel="Time (s)")
-    theta, t = theta_power(tklfp)
+    # t_ms = np.load(f"../val_results/t_ms_{lfp_type}.npy")
+    # lfp = np.load(f"../val_results/{lfp_type}.npy")
+    lfp_norm = lfp / np.abs(lfp[t_ms < 5000]).max()
+    ax1.plot(t_ms / 1000, lfp_norm, c="#c500cc", lw=1, rasterized=True)
+    ax1.set(ylabel=f"Normalized {name.upper()}", xlabel="Time (s)")
+    # Aussel used 4000 npserseg and 3900 noverlap on fs=1024 data. and default window
+    win_width = 4000 * 1000 / 1024
+    nperseg = np.searchsorted(t_ms, win_width)
+    print(f"win_width = {win_width}, nperseg = {nperseg}")
+    poverlap = 3900 / 4000
+    theta, t = theta_power(lfp, nperseg=nperseg, poverlap=poverlap)
+    print(theta.shape)
     ax2.plot(t, theta / theta.max(), c="#c500cc", rasterized=True)
-    ax2.set(ylabel="Normalized theta band power", xlabel="Time (s)")
+    ax2.set(ylabel="Normalized theta band power", xlabel="Time (s)", xlim=(0, 35))
 
-    fig.savefig("../results/val.svg", bbox_inches="tight", transparent=True)
+    fig.suptitle(".")
+    fig.savefig(f"../results/val-{name}.svg", bbox_inches="tight", transparent=True)
+
+# %%
+t_ms_orig
+
+# %%

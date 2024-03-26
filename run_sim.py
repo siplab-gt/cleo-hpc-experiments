@@ -1,26 +1,26 @@
 #! python
 from __future__ import annotations
+
 import argparse
 import os
-import time
 import shutil
-
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.linalg import solve_discrete_are
-from brian2 import Network, mm, ms, StateMonitor, prefs
+import time
 
 import cleo
-from cleo.ephys import Probe, TKLFPSignal
-from cleo import opto
+import matplotlib.pyplot as plt
+import numpy as np
+import wslfp
+from brian2 import Network, StateMonitor, mm, ms, prefs, uvolt
+from cleo.ephys import Probe, RWSLFPSignalFromPSCs, TKLFPSignal
+from scipy.linalg import solve_discrete_are
 
 try:
     import ldsctrlest.gaussian as glds
 except ModuleNotFoundError:
     print("Warning: ldsctrlest not installed, so LQR control will not work")
 
-from aussel_model.model import single_process3 as sp3
 from aussel_model.interface import user_interface_simple as uis
+from aussel_model.model import single_process3 as sp3
 from plot_results import plot_input, plot_lfp
 
 
@@ -40,14 +40,30 @@ def main(args):
     config_processor(args, sim, n_opto_tot, path)
 
     lfp = TKLFPSignal(name="lfp")
+    rwslfp = RWSLFPSignalFromPSCs(amp_func=wslfp.aussel18, name="rwslfp")
+    # sclfp = RWSLFPSignalFromPSCs(
+    #     amp_func=wslfp.aussel18,
+    #     name="sclfp",
+    #     wslfp_kwargs={"alpha": 1, "tau_ampa_ms": 0, "tau_gaba_ms": 0},
+    # )
+    # saclfp = RWSLFPSignalFromPSCs(
+    #     amp_func=wslfp.aussel18, name="saclfp", wslfp_kwargs={}
+    # )
     # use same electrode coordinates, with the same 150um scale
-    probe = Probe(elec_pos * 0.15 * mm, [lfp], save_history=True)
+    probe = Probe(elec_pos * 0.15 * mm, [lfp, rwslfp], save_history=True)
     for ng_exc, ng_inh in zip(all_ngs_exc, all_ngs_inh):
         orntn = orntn_for_ng(ng_exc)
         mean_orntn = np.mean(orntn, axis=0, keepdims=True)
         # inh groups don't have orientation information stored, so we will approximate
         # with the average orientation for the exc neurons in each region
-        sim.inject(probe, ng_exc, tklfp_type="exc", orientation=orntn)
+        sim.inject(
+            probe,
+            ng_exc,
+            tklfp_type="exc",
+            orientation=orntn,
+            Iampa_var_names=["I_SynE", "I_SynExt"],
+            Igaba_var_names=["I_SynI"],
+        )
         sim.inject(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     fibers = None
     if args.mode not in ["orig", "val"]:
@@ -87,7 +103,7 @@ def main(args):
         # fig, ax = plt.subplots()
         # ax.plot(mon_Iopto.t, mon_Iopto.Iopto.T)
 
-        save_lfp(path, lfp)
+        save_lfp(path, lfp, rwslfp)
         plot_lfp(path)
         save_input(path, fibers)
         plot_input(path)
@@ -412,15 +428,16 @@ def orntn_for_ng(ng):
     return xyz_dendrite - xyz_soma
 
 
-def save_lfp(path, lfp: TKLFPSignal):
+def save_lfp(path, lfp: TKLFPSignal, rwslfp: RWSLFPSignalFromPSCs):
     # imitate method from Aussel 2018: take average signal from one cylinder
     # of contacts and subtract from the other
-    lfp1 = lfp.lfp_uV[:, :144].mean(axis=1)
-    lfp2 = lfp.lfp_uV[:, 144:288].mean(axis=1)
-    fname = os.path.join(path, "tklfp.npy")
-    np.save(fname, lfp2 - lfp1)
-    t_fname = os.path.join(path, "t_ms_tklfp.npy")
-    np.save(t_fname, lfp.t_ms)
+    for lfp_vals, signal_type in [(lfp.lfp / uvolt, "tklfp"), (rwslfp.lfp, "rwslfp")]:
+        lfp1 = lfp_vals[:, :144].mean(axis=1)
+        lfp2 = lfp_vals[:, 144:288].mean(axis=1)
+        fname = os.path.join(path, f"{signal_type}.npy")
+        np.save(fname, lfp2 - lfp1)
+        t_fname = os.path.join(path, f"t_ms_{signal_type}.npy")
+        np.save(t_fname, lfp.t_ms)
 
 
 def save_input(path, fibers: cleo.light.Light):
