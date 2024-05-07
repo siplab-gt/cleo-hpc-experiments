@@ -66,7 +66,7 @@ def main(args):
         )
         sim.inject(probe, ng_inh, tklfp_type="inh", orientation=mean_orntn)
     fibers = None
-    if args.mode not in ["orig", "val"]:
+    if args.mode not in ["orig", "val-epi", "val-healthy"]:
         light_model = cleo.light.fiber473nm()
         light_model.R0 = args.R0 * mm  # bigger fiber radius
         light_model.K *= args.Kfactor  # alter absorbance
@@ -127,7 +127,7 @@ def config_processor(args, sim, n_opto, path):
         ref = np.tile(np.load(args.ref), args.n_trials)
         np.save(os.path.join(path, "ref.npy"), ref)
 
-    if args.mode in ["orig", "val"]:
+    if args.mode in ["orig", "val-epi", "val-healthy"]:
         # this is equivalent to the RecordOnlyProcessor
         my_process = lambda state, t_ms: ({}, t_ms)
 
@@ -474,12 +474,13 @@ def setup_aussel_net(args) -> tuple[Network, list]:
     uis.f1.set(args.f1)
     kwargs = {}
 
-    if args.mode == "val":
+    if args.mode == "val-epi":
         # pathological parameters from Aussel 2022, Fig 5
         uis.sclerosis.set(0.6)
         uis.sprouting.set(0.8)
         uis.Ek.set(-90)
         uis.tau_Cl.set(0.5)
+    if args.mode in ["val-epi", "val-healthy"]:
         uis.input_type.set("custom")
         input_basename = "validation/aussel22-data/input_epi_wake_?.txt"
         uis.in_file_1.set(input_basename.replace("?", "1"))
@@ -517,7 +518,7 @@ if __name__ == "__main__":
         "--mode",
         type=str,
         default="orig",
-        help="Select experiment mode: orig, OLconst, OLLQR, LQR, MPC, fit, or val",
+        help="Select experiment mode: orig, OLconst, OLLQR, LQR, MPC, fit, val-epi, or val-healthy",
     )
     parser.add_argument(
         "--target",

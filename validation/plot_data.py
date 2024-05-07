@@ -107,13 +107,16 @@ ax.set(xlim=(0, 35))
 # make sure inputs look right after preprocessing
 # no, looks like they are already preprocessed to be normalized firing rates
 # so I need to disable that step for these files
-from aussel_model.aussel_model.model.apply_input import get_FR
+from aussel_model.model.apply_input import get_FR
+
+inputs_123 = []
 
 fig, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 6))
 for i, ax in enumerate(axs):
     filename = f"input_epi_wake_{i+1}.txt"
     file_path = os.path.join(data_dir, filename)
     inputs = np.loadtxt(file_path)
+    inputs_123.append(inputs)
 
     ax.plot(data, label="raw", alpha=0.5)
     inputs_FR = get_FR(inputs, 1024)
@@ -126,9 +129,11 @@ for i, ax in enumerate(axs):
 
 # %%
 # confirmed that the inputs are now loaded correctly without preprocessing
-inputs = np.load("../results_2024-01-18 14:30:02.512051/input.npz")
-fig, ax = plt.subplots()
-ax.plot(inputs["inputs1"])
+inputs = np.load("../val_healthy_results/input.npz")
+fig, axs = plt.subplots(3, 1, sharex=True)
+axs[0].plot(inputs["inputs1"])
+axs[1].plot(inputs["inputs2"])
+axs[2].plot(inputs["inputs3"])
 inputs.keys()
 ax.plot(np.loadtxt("./aussel22-data/input_epi_wake_1.txt"))
 
@@ -138,43 +143,67 @@ import cleo
 import aussel_model.model
 import aussel_model.model.apply_input
 
-lfp_orig = np.array(aussel_model.model.apply_input.lecture("../val_results/LFP.txt")[0])
-t_ms_orig = np.arange(len(lfp_orig)) / 1024 * 1000
-t_ms_rwslfp = np.load("../val_results/t_ms_rwslfp.npy")
-rwslfp = np.load("../val_results/rwslfp.npy")
-t_ms_tklfp = np.load("../val_results/t_ms_tklfp.npy")
-tklfp = np.load("../val_results/tklfp.npy")
+theta_max = None
 
-plt.style.use("default")
-plt.rcParams.update({"svg.fonttype": "none", "savefig.dpi": 300})
-
-for t_ms, lfp, name in [
-    (t_ms_orig, lfp_orig, "sclfp"),
-    (t_ms_rwslfp, rwslfp, "rwslfp"),
-    (t_ms_tklfp, tklfp, "tklfp"),
-]:
-    aspect = 1.5
-    height = 4
-    fig, (ax1, ax2) = plt.subplots(
-        1, 2, layout="tight", figsize=(aspect * height, height)
+for model_type in ["epi", "healthy"]:
+    lfp_orig = np.array(
+        aussel_model.model.apply_input.lecture(f"../val_{model_type}_results/LFP.txt")[
+            0
+        ]
     )
-    # t_ms = np.load(f"../val_results/t_ms_{lfp_type}.npy")
-    # lfp = np.load(f"../val_results/{lfp_type}.npy")
-    lfp_norm = lfp / np.abs(lfp[t_ms < 5000]).max()
-    ax1.plot(t_ms / 1000, lfp_norm, c="#c500cc", lw=1, rasterized=True)
-    ax1.set(ylabel=f"Normalized {name.upper()}", xlabel="Time (s)")
-    # Aussel used 4000 npserseg and 3900 noverlap on fs=1024 data. and default window
-    win_width = 4000 * 1000 / 1024
-    nperseg = np.searchsorted(t_ms, win_width)
-    print(f"win_width = {win_width}, nperseg = {nperseg}")
-    poverlap = 3900 / 4000
-    theta, t = theta_power(lfp, nperseg=nperseg, poverlap=poverlap)
-    print(theta.shape)
-    ax2.plot(t, theta / theta.max(), c="#c500cc", rasterized=True)
-    ax2.set(ylabel="Normalized theta band power", xlabel="Time (s)", xlim=(0, 35))
+    t_ms_orig = np.arange(len(lfp_orig)) / 1024 * 1000
+    t_ms_rwslfp = np.load(f"../val_{model_type}_results/t_ms_rwslfp.npy")
+    t_ms_tklfp = np.load(f"../val_{model_type}_results/t_ms_tklfp.npy")
+    tklfp = np.load(f"../val_{model_type}_results/tklfp.npy")
+    rwslfp = np.load(f"../val_{model_type}_results/rwslfp.npy")
 
-    fig.suptitle(".")
-    fig.savefig(f"../results/val-{name}.svg", bbox_inches="tight", transparent=True)
+    avg_input = np.mean(inputs_123, axis=0)
+    t_ms_input = np.arange(len(avg_input)) / 1024 * 1000
+    avg_input = avg_input[t_ms_input < 35000]
+    t_ms_input = t_ms_input[t_ms_input < 35000]
+    # avg_input_norm = avg_input / np.abs(avg_input[t_ms_input < 5000]).max()
+
+    plt.style.use("default")
+    plt.rcParams.update({"svg.fonttype": "none", "savefig.dpi": 300})
+
+    for t_ms, lfp, name in [
+        (t_ms_orig, lfp_orig, "sclfp"),
+        (t_ms_rwslfp, rwslfp, "rwslfp"),
+        (t_ms_tklfp, tklfp, "tklfp"),
+        (t_ms_input, avg_input, "avg SEEG input"),
+    ]:
+        aspect = 1.5
+        height = 4
+        fig, (ax1, ax2) = plt.subplots(
+            1, 2, layout="tight", figsize=(aspect * height, height)
+        )
+        lfp_norm = lfp / np.abs(lfp[t_ms < 5000]).max()
+        ax1.plot(t_ms / 1000, lfp_norm, c="#c500cc", lw=1, rasterized=True)
+        ax1.set(
+            ylabel=f"Normalized {name.upper()}", xlabel="Time (s)", ylim=(-3.5, 8.5)
+        )
+        # Aussel used 4000 npserseg and 3900 noverlap on fs=1024 data. and default window
+        win_width = 4000 * 1000 / 1024
+        nperseg = np.searchsorted(t_ms, win_width)
+        # print(f"win_width = {win_width}, nperseg = {nperseg}")
+        poverlap = 3900 / 4000
+        theta, t = theta_power(lfp_norm, nperseg=nperseg, poverlap=poverlap)
+        if not theta_max:
+            theta_max = theta.max()
+        ax2.plot(t, theta / theta_max, c="#c500cc", rasterized=True)
+        ax2.set(
+            ylabel="Normalized theta band power",
+            xlabel="Time (s)",
+            xlim=(0, 35),
+            ylim=(-0.05, 1.05),
+        )
+
+        fig.suptitle(model_type)
+        fig.savefig(
+            f"../results/val-{model_type}-{name}.svg",
+            bbox_inches="tight",
+            transparent=True,
+        )
 
 # %%
 t_ms_orig

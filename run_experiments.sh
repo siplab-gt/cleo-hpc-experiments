@@ -44,5 +44,8 @@ ln -s "$(get_last_dir)" mpc_results
 # ======================================================================
 # Validation, reproducing epilepsy figure from Aussel 2022 figure 5
 # ======================================================================
-python run_sim.py --mode=val --runtime=35 --target=cython
-ln -s "$(get_last_dir)" val_results
+python run_sim.py --mode=val-epi --runtime=35 --target=cython
+ln -s "$(get_last_dir)" val_epi_results
+
+python run_sim.py --mode=val-healthy --runtime=35 --target=cython
+ln -s "$(get_last_dir)" val_healthy_results

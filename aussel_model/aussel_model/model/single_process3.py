@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from brian2 import *
-
-from .global_vars_and_eqs import *
-from .topology import topologie,topologie_rectangle
-from .apply_input import *
-from .annex_functions import *
-from .preparation import *
-import scipy
-import time
 import datetime
 import os
+import time
 
+import scipy
+from brian2 import *
+
+from .annex_functions import *
+from .apply_input import *
+from .global_vars_and_eqs import *
+from .preparation import *
+from .topology import topologie, topologie_rectangle
 
 pas_de_temps=defaultclock.dt 
 
@@ -131,7 +131,9 @@ def net_setup(runtime, plot_raster,types,all_N,topo,co,co2,A0,A1,dur,f1,duty_cyc
 #    print(inputs1(500*msecond))
     if save_inputs:
         t_s, inputs1_arr = timedarray2array(inputs1, runtime, record_dt, return_t=True)
-        np.savez_compressed(os.path.join(path, 'input.npz'), t_s=t_s, inputs1=inputs1_arr)
+        inputs2_arr = timedarray2array(inputs2, runtime, record_dt)
+        inputs3_arr = timedarray2array(inputs3, runtime, record_dt)
+        np.savez_compressed(os.path.join(path, 'input.npz'), t_s=t_s, inputs1=inputs1_arr, inputs2=inputs2_arr, inputs3=inputs3_arr)
     
     print('Building the network')    
     myNetwork=Network()         
