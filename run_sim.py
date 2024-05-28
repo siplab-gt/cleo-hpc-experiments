@@ -481,6 +481,9 @@ def setup_aussel_net(args) -> tuple[Network, list]:
         uis.Ek.set(-90)
         uis.tau_Cl.set(0.5)
     if args.mode in ["val-epi", "val-healthy"]:
+        uis.pmono.set(0.3)
+        uis.functional_co.set("wake")
+        uis.CAN.set("wake")
         uis.input_type.set("custom")
         input_basename = "validation/aussel22-data/input_epi_wake_?.txt"
         uis.in_file_1.set(input_basename.replace("?", "1"))
