@@ -18,7 +18,7 @@ If you have problems installing from the `environment.yml` file, try this instea
 ```bash
 mamba create -n hipp2 python=3.9
 mamba install numpy scipy
-pip install cleosim==0.10.0
+pip install cleosim==0.14.1
 ```
 
 Then install the model files as a package:

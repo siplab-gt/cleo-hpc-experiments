@@ -35,7 +35,7 @@ dependencies:
   - wheel=0.41.2=pyhd8ed1ab_0
   - xz=5.2.6=h166bdaf_0
   - pip:
-      - attrs==21.4.0
+      - attrs==23.2.0
       # - aussel-model==0.0.0
       - bidict==0.22.1
       - brian2==2.5.4
