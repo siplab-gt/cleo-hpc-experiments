@@ -167,20 +167,22 @@ for model_type in ["epi", "healthy"]:
     plt.rcParams.update({"svg.fonttype": "none", "savefig.dpi": 300})
 
     for t_ms, lfp, name in [
-        (t_ms_orig, lfp_orig, "sclfp"),
         (t_ms_rwslfp, rwslfp, "rwslfp"),
+        (t_ms_orig, lfp_orig, "sclfp"),
         (t_ms_tklfp, tklfp, "tklfp"),
         (t_ms_input, avg_input, "avg SEEG input"),
     ]:
         aspect = 1.5
         height = 4
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, layout="tight", figsize=(aspect * height, height)
+            2, 1, layout="tight", figsize=(3.2, 9.6), sharex=True
         )
         lfp_norm = lfp / np.abs(lfp[t_ms < 5000]).max()
         ax1.plot(t_ms / 1000, lfp_norm, c="#c500cc", lw=1, rasterized=True)
         ax1.set(
-            ylabel=f"Normalized {name.upper()}", xlabel="Time (s)", ylim=(-3.5, 8.5)
+            # ylabel=f"Normalized {name.upper()}",
+            # xlabel="Time (s)",
+            ylim=(-3.5, 8.5),
         )
         # Aussel used 4000 npserseg and 3900 noverlap on fs=1024 data. and default window
         win_width = 4000 * 1000 / 1024
@@ -191,8 +193,9 @@ for model_type in ["epi", "healthy"]:
         if not theta_max:
             theta_max = theta.max()
         ax2.plot(t, theta / theta_max, c="#c500cc", rasterized=True)
+        # ax2.plot(t, theta / theta.max(), c="k", rasterized=True)
         ax2.set(
-            ylabel="Normalized theta band power",
+            # ylabel="Normalized theta band power",
             xlabel="Time (s)",
             xlim=(0, 35),
             ylim=(-0.05, 1.05),
@@ -205,7 +208,75 @@ for model_type in ["epi", "healthy"]:
             transparent=True,
         )
 
-# %%
-t_ms_orig
 
 # %%
+import seaborn as sns
+
+
+settings2plot = [
+    ("epi", "rwslfp", "Replication", "#c500cc"),
+    ("epi", "avg SEEG", "LFP output ablation", "#8000b4"),
+    ("healthy", "rwslfp", "Model ablation", "#8000b4"),
+]
+aspect = 1.5
+height = 4
+plt.style.use("default")
+plt.rcParams.update({"svg.fonttype": "none", "savefig.dpi": 300, "font.size": 5})
+fig, axs = plt.subplots(
+    2,
+    len(settings2plot),
+    figsize=(3.2, 3.35),
+    layout="compressed",
+    sharey="row",
+    sharex=True,
+    # 2, len(settings2plot), figsize=(len(settings2plot) * 2.8, 8.4), layout="tight"
+)
+sns.despine(fig)
+lw = 0.5
+
+avg_input = np.mean(inputs_123, axis=0)
+t_ms_input = np.arange(len(avg_input)) / 1024 * 1000
+avg_input = avg_input[t_ms_input < 35000]
+t_ms_input = t_ms_input[t_ms_input < 35000]
+
+for (model_type, output_type, title, color), (ax1, ax2) in zip(settings2plot, axs.T):
+    if output_type != "avg SEEG":
+        t_ms = np.load(f"../val_{model_type}_results/t_ms_{output_type}.npy")
+        lfp = np.load(f"../val_{model_type}_results/{output_type}.npy")
+
+    else:
+        lfp = np.mean(inputs_123, axis=0)
+        t_ms = np.arange(len(lfp)) / 1024 * 1000
+        lfp = lfp[t_ms < 35000]
+        t_ms = t_ms[t_ms < 35000]
+
+    lfp_norm = lfp / np.abs(lfp[t_ms < 5000]).max()
+    ax1.plot(t_ms / 1000, lfp_norm, c=color, lw=lw, rasterized=True)
+    ax1.set(
+        # ylabel=f"Normalized {name.upper()}",
+        # xlabel="Time (s)",
+        ylim=(-3.5, 8.5),
+        title=title,
+    )
+    # Aussel used 4000 npserseg and 3900 noverlap on fs=1024 data. and default window
+    win_width = 4000 * 1000 / 1024
+    nperseg = np.searchsorted(t_ms, win_width)
+    # print(f"win_width = {win_width}, nperseg = {nperseg}")
+    poverlap = 3900 / 4000
+    theta, t = theta_power(lfp_norm, nperseg=nperseg, poverlap=poverlap)
+    # if not theta_max:
+    #     theta_max = theta.max()
+    ax2.plot(t, theta / theta_max, c=color, lw=lw, rasterized=True)
+    # ax2.plot(t, theta / theta.max(), c="k", rasterized=True)
+    ax2.set(
+        # ylabel="Normalized theta band power",
+        xlabel="Time (s)",
+        xlim=(0, 35),
+        ylim=(-0.05, 1.05),
+    )
+
+    fig.savefig(
+        "../results/val-panel.svg",
+        bbox_inches="tight",
+        transparent=True,
+    )
