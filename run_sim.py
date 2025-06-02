@@ -20,15 +20,16 @@ try:
 except ModuleNotFoundError:
     print("Warning: ldsctrlest not installed, so LQR control will not work")
 
+from plot_results import plot_input, plot_lfp
+
+display = Display()
+display.start()
+print(f"display.is_alive() = {display.is_alive()}")
 from aussel_model.interface import user_interface_simple as uis
 from aussel_model.model import single_process3 as sp3
-from plot_results import plot_input, plot_lfp
 
 
 def main(args):
-    display = Display()
-    display.start()
-    print(f"display.is_alive() = {display.is_alive()}")
     setup_start = time.time()
     prefs.codegen.target = args.target
     (net, all_ngs, elec_pos), params = setup_aussel_net(args)
