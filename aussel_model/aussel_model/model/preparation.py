@@ -465,6 +465,17 @@ def preparation(input_type,inputs1,types,all_pos,dir_hipp,all_p_intra,all_p_inte
     all_syn_CA1_EC=connect_2zones(all_CA1_py,all_EC_py,all_EC_inh,sig_E,all_p_inter[3][0],all_gains[3],co,all_g_max_e)   
 
     all_syn_inter=[all_syn_EC_DG,all_syn_EC_CA3,all_syn_EC_CA1,all_syn_DG_CA3,all_syn_DG_CA1,all_syn_CA3_CA1,all_syn_CA1_EC]
+
+    def flatten_nested_list(nested_list):
+        result = []
+        for item in nested_list:
+            if isinstance(item, list):
+                result.extend(flatten_nested_list(item))  # Recursive call for nested lists
+            else:
+                result.append(item)  # Add non-list objects to the result
+        return result
+    all_syn_objs = flatten_nested_list(all_syn_intra + all_syn_inter)
+    print('Total number of synapses:', sum([len(syn.j) for syn in all_syn_objs]))
     
 #    print('Connexions inter')
 #    print('EC DG')
