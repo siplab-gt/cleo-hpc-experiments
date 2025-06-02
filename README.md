@@ -16,9 +16,9 @@ This creates an environment called `hipp2`&mdash;so called because the original 
 
 If you have problems installing from the `environment.yml` file, try this instead:
 ```bash
-mamba create -n hipp2 python=3.9
+mamba create -n hipp2 python=3.10
 mamba install numpy scipy
-pip install cleosim==0.14.1
+pip install cleosim==0.18.1
 ```
 
 Then install the model files as a package:
