@@ -87,10 +87,12 @@ fig.savefig("results/sim-results.svg", bbox_inches="tight", transparent=True)
 # comparing TKLFP and RWSLFP
 import seaborn as sns
 
+sns.set_context("paper", font_scale=5 / 6)
+
 from aussel_model.model.single_process3 import lecture
 
 fig, (ax1, ax2, ax3) = plt.subplots(
-    3, 1, sharex=True, figsize=(6.5, 6), layout="constrained"
+    3, 1, sharex=True, figsize=(6.25, 5), layout="constrained"
 )
 ssclfp = -np.array(lecture("orig_results/LFP.txt")).flatten() * 1e6
 t_ssclfp = np.linspace(0, 400, len(ssclfp), endpoint=False)
@@ -116,5 +118,6 @@ ax3.set(
     yticks=[],
 )
 sns.despine(fig)
-fig.savefig("results/rws_tk_lfp.pdf")
+# fig.savefig("results/rws_tk_lfp.pdf")
+fig.savefig("results/rws_tk_lfp.svg")
 # %%
