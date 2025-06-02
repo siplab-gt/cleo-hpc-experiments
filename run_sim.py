@@ -129,7 +129,7 @@ def main(args):
 
 
 def config_processor(args, sim, n_opto, path):
-    dt_ms = 1
+    dt_samp = 1 * ms
     t_start_ms = 100
     t_stop_ms = 300
     t_trial_ms = 400
@@ -140,23 +140,23 @@ def config_processor(args, sim, n_opto, path):
 
     if args.mode in ["orig", "val-epi", "val-healthy"]:
         # this is equivalent to the RecordOnlyProcessor
-        my_process = lambda state, t_ms: ({}, t_ms)
+        my_process = lambda state, t_samp: ({}, t_samp)
 
     elif args.mode == "OLconst":
 
-        def my_process(state, t_ms):
-            if t_start_ms <= t_ms < t_stop_ms:
+        def my_process(state, t_samp):
+            if t_start_ms <= t_samp / ms < t_stop_ms:
                 opto_val = args.Irr0_OL
             else:
                 opto_val = 0
-            return {"fibers": opto_val}, t_ms
+            return {"fibers": opto_val}, t_samp / ms
 
     elif args.mode == "OLnaive":
         u = -ref / np.max(np.abs(ref)) * args.maxIrr0
         u[u < 0] = 0
 
-        def my_process(state, t_ms):
-            return {"fibers": u[int(t_ms)]}, t_ms
+        def my_process(state, t_samp):
+            return {"fibers": u[int(t_samp / ms)]}, t_samp
 
     elif args.mode == "OLLQR":
         # compute stimulus beforehand using model fit
@@ -170,9 +170,9 @@ def config_processor(args, sim, n_opto, path):
             sim.u[t] = ctrlr.ControlOutputReference(sys2sim.y)[0, 0]
             sys2sim.Simulate(sim.u[t])
 
-        def my_process(state, t_ms):
-            opto_val = sim.u[int(t_ms)]
-            return {"fibers": opto_val}, t_ms
+        def my_process(state, t_samp):
+            opto_val = sim.u[int(t_samp / ms)]
+            return {"fibers": opto_val}, t_samp
 
     elif args.mode == "fit":
         n_tot = int(args.runtime * 1000)
@@ -190,9 +190,9 @@ def config_processor(args, sim, n_opto, path):
         u_rand = np.abs(args.maxIrr0 / 3 * np.random.randn(n_tot))
         sim.u = on_off[:n_tot] * u_rand
 
-        def my_process(state, t_ms):
-            opto_val = sim.u[int(t_ms)]
-            return {"fibers": opto_val}, t_ms
+        def my_process(state, t_samp):
+            opto_val = sim.u[int(t_samp / ms)]
+            return {"fibers": opto_val}, t_samp
 
     elif args.mode == "LQR":
         gsys = load_fit_sys(path, args)
@@ -202,14 +202,14 @@ def config_processor(args, sim, n_opto, path):
         shutil.copy(args.ref, os.path.join(path, "ref.npy"))
         sim.ctrlr = ctrlr
 
-        def my_process(state, t_ms):
+        def my_process(state, t_samp):
             lfp_uV = state["Probe"]["lfp"]
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
             # assuming regular samples, can us t_ms directly as index
-            sim.ctrlr.y_ref = sim.ref[int(t_ms)]
+            sim.ctrlr.y_ref = sim.ref[int(t_samp / ms)]
             opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
-            return {"fibers": opto_val}, t_ms + 3
+            return {"fibers": opto_val}, t_samp + 3
     elif args.mode == "MPC":
         # from juliacall import main as jl
         import juliacall
@@ -237,7 +237,7 @@ def config_processor(args, sim, n_opto, path):
 
         sample = 3
 
-        def my_process(state, t_ms):
+        def my_process(state, t_samp):
             # sim.io_processor.sampling_period_ms = 3
             # get measurement
             lfp_uV = state["Probe"]["lfp"]
@@ -246,7 +246,7 @@ def config_processor(args, sim, n_opto, path):
             print("\nLFP1/2: ", lfp1, "     2: ", lfp2, "\n")
             # assuming regular samples, can us t_ms directly as index
 
-            if int(t_ms) % sample == 0:
+            if int(t_samp / ms) % sample == 0:
                 # call controller
                 mpc_result = jl.flex_mpc(
                     jl.Array(sim.x_est),
@@ -276,7 +276,7 @@ def config_processor(args, sim, n_opto, path):
                 C=jl.Array(sim.C),
             )
 
-            return {"fibers": sim.optimal_u}, t_ms + 6
+            return {"fibers": sim.optimal_u}, t_samp + 6 * ms
     elif args.mode == "OLMPC":
         # from juliacall import main as jl
         import juliacall
@@ -323,7 +323,7 @@ def config_processor(args, sim, n_opto, path):
 
         print("\nus vector:  ", optimal_us_vec, "\n")
 
-        def my_process(state, t_ms):
+        def my_process(state, t_samp):
             # sim.io_processor.sampling_period_ms = 3
             # get measurement
             lfp_uV = state["Probe"]["lfp"]
@@ -332,7 +332,7 @@ def config_processor(args, sim, n_opto, path):
             print("\nLFP1/2: ", lfp1, "     2: ", lfp2, "\n")
             # assuming regular samples, can us t_ms directly as index
 
-            if int(t_ms) % sample == 0:
+            if int(t_samp / ms) % sample == 0:
                 # "call" controller
                 mpc_result = optimal_us_vec[
                     0
@@ -356,14 +356,14 @@ def config_processor(args, sim, n_opto, path):
                 C=jl.Array(sim.C),
             )
 
-            return {"fibers": sim.optimal_u}, t_ms
+            return {"fibers": sim.optimal_u}, t_samp
 
     # need to subclass so it's concrete
     class MyLIOP(cleo.ioproc.LatencyIOProcessor):
-        def process(self, state, t_ms):
-            return my_process(state, t_ms)
+        def process(self, state, t_samp):
+            return my_process(state, t_samp)
 
-    proc = MyLIOP(dt_ms)
+    proc = MyLIOP(dt_samp)
     sim.set_io_processor(proc)
 
 
@@ -456,7 +456,7 @@ def save_lfp(
         fname = os.path.join(path, f"{signal_type}.npy")
         np.save(fname, lfp2 - lfp1)
         t_fname = os.path.join(path, f"t_ms_{signal_type}.npy")
-        np.save(t_fname, lfp.t_ms)
+        np.save(t_fname, lfp.t / ms)
 
 
 def save_input(path, fibers: cleo.light.Light):
@@ -466,7 +466,7 @@ def save_input(path, fibers: cleo.light.Light):
     npzfile = np.load(fname)
     Irr0_mW_per_mm2 = np.array(fibers.values)
     np.savez_compressed(
-        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=fibers.t_ms, **npzfile
+        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=fibers.t_ms / ms, **npzfile
     )
 
 
