@@ -12,6 +12,7 @@ import numpy as np
 import wslfp
 from brian2 import Network, StateMonitor, mm, ms, prefs, uvolt
 from cleo.ephys import Probe, RWSLFPSignalFromPSCs, TKLFPSignal
+from pyvirtualdisplay import Display
 from scipy.linalg import solve_discrete_are
 
 try:
@@ -25,6 +26,9 @@ from plot_results import plot_input, plot_lfp
 
 
 def main(args):
+    display = Display()
+    display.start()
+    print(f"display.is_alive() = {display.is_alive()}")
     setup_start = time.time()
     prefs.codegen.target = args.target
     (net, all_ngs, elec_pos), params = setup_aussel_net(args)
@@ -39,18 +43,23 @@ def main(args):
     n_opto_tot = 2 * n_opto_col
     config_processor(args, sim, n_opto_tot, path)
 
-    lfp = TKLFPSignal(name="lfp")
-    rwslfp = RWSLFPSignalFromPSCs(amp_func=wslfp.aussel18, name="rwslfp")
-    # sclfp = RWSLFPSignalFromPSCs(
-    #     amp_func=wslfp.aussel18,
-    #     name="sclfp",
-    #     wslfp_kwargs={"alpha": 1, "tau_ampa_ms": 0, "tau_gaba_ms": 0},
-    # )
+    lfp_signals = [
+        TKLFPSignal(name="lfp"),
+        RWSLFPSignalFromPSCs(amp_func=wslfp.aussel18, name="rwslfp"),
+    ]
+    if args.sclfp:
+        lfp_signals.append(
+            RWSLFPSignalFromPSCs(
+                amp_func=wslfp.aussel18,
+                name="sclfp",
+                wslfp_kwargs={"alpha": 1, "tau_ampa_ms": 0, "tau_gaba_ms": 0},
+            )
+        )
     # saclfp = RWSLFPSignalFromPSCs(
     #     amp_func=wslfp.aussel18, name="saclfp", wslfp_kwargs={}
     # )
     # use same electrode coordinates, with the same 150um scale
-    probe = Probe(elec_pos * 0.15 * mm, [lfp, rwslfp], save_history=True)
+    probe = Probe(elec_pos * 0.15 * mm, lfp_signals, save_history=True)
     for ng_exc, ng_inh in zip(all_ngs_exc, all_ngs_inh):
         orntn = orntn_for_ng(ng_exc)
         mean_orntn = np.mean(orntn, axis=0, keepdims=True)
@@ -95,7 +104,7 @@ def main(args):
     # sim.network.add(mon_Iopto)
     plot_viz(args, all_ngs_exc, all_ngs_inh, probe, fibers)
 
-    print(f"Setup time: {(time.time()-setup_start)} seconds")
+    print(f"Setup time: {(time.time() - setup_start)} seconds")
 
     if args.runtime > 0:
         sp3.run_process(net, all_ngs, elec_pos, *params)
@@ -103,7 +112,7 @@ def main(args):
         # fig, ax = plt.subplots()
         # ax.plot(mon_Iopto.t, mon_Iopto.Iopto.T)
 
-        save_lfp(path, lfp, rwslfp)
+        save_lfp(path, *lfp_signals)
         plot_lfp(path)
         save_input(path, fibers)
         plot_input(path)
@@ -115,6 +124,7 @@ def main(args):
         plt.show()
     if args.no_save:
         shutil.rmtree(path)
+    display.stop()
 
 
 def config_processor(args, sim, n_opto, path):
@@ -428,10 +438,18 @@ def orntn_for_ng(ng):
     return xyz_dendrite - xyz_soma
 
 
-def save_lfp(path, lfp: TKLFPSignal, rwslfp: RWSLFPSignalFromPSCs):
+def save_lfp(
+    path,
+    lfp: TKLFPSignal,
+    rwslfp: RWSLFPSignalFromPSCs,
+    sclfp: RWSLFPSignalFromPSCs = None,
+):
     # imitate method from Aussel 2018: take average signal from one cylinder
     # of contacts and subtract from the other
-    for lfp_vals, signal_type in [(lfp.lfp / uvolt, "tklfp"), (rwslfp.lfp, "rwslfp")]:
+    lfp_vals_and_names = [(lfp.lfp / uvolt, "tklfp"), (rwslfp.lfp, "rwslfp")]
+    if sclfp:
+        lfp_vals_and_names.append((sclfp.lfp, "sclfp"))
+    for lfp_vals, signal_type in lfp_vals_and_names:
         lfp1 = lfp_vals[:, :144].mean(axis=1)
         lfp2 = lfp_vals[:, 144:288].mean(axis=1)
         fname = os.path.join(path, f"{signal_type}.npy")
@@ -635,6 +653,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Whether to only plot fibers in the slice visualized",
+    )
+    parser.add_argument(
+        "--sclfp",
+        action="store_true",
+        default=False,
+        help="Run with simply summed currents (no weighting or delay) through Cleo; should be identical to original",
     )
 
     # args for wrapping with cleo
