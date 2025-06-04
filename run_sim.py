@@ -7,10 +7,13 @@ import shutil
 import time
 
 import cleo
+import cleo.utilities
+import cvxpy as cp
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import wslfp
-from brian2 import Network, StateMonitor, mm, ms, prefs, uvolt
+from brian2 import Network, StateMonitor, mm, mm2, ms, mwatt, prefs, uvolt
 from cleo.ephys import Probe, RWSLFPSignalFromPSCs, TKLFPSignal
 from pyvirtualdisplay import Display
 from scipy.linalg import solve_discrete_are
@@ -98,7 +101,7 @@ def main(args):
             direction=drctn,
             light_model=light_model,
             save_history=True,
-            max_Irr0_mW_per_mm2=args.maxIrr0,
+            max_value=args.maxIrr0 * mwatt / mm2,
         )
         sim.inject(fibers, all_ngs_exc[0], all_ngs_inh[0])
     # mon_Iopto = StateMonitor(all_ngs_exc[0], 'Iopto', record=True)
@@ -125,7 +128,6 @@ def main(args):
         plt.show()
     if args.no_save:
         shutil.rmtree(path)
-    display.stop()
 
 
 def config_processor(args, sim, n_opto, path):
@@ -146,9 +148,9 @@ def config_processor(args, sim, n_opto, path):
 
         def my_process(state, t_samp):
             if t_start_ms <= t_samp / ms < t_stop_ms:
-                opto_val = args.Irr0_OL
+                opto_val = args.Irr0_OL * mwatt / mm2
             else:
-                opto_val = 0
+                opto_val = 0 * mwatt / mm2
             return {"fibers": opto_val}, t_samp / ms
 
     elif args.mode == "OLnaive":
@@ -156,7 +158,7 @@ def config_processor(args, sim, n_opto, path):
         u[u < 0] = 0
 
         def my_process(state, t_samp):
-            return {"fibers": u[int(t_samp / ms)]}, t_samp
+            return {"fibers": u[int(t_samp / ms)] * mwatt / mm2}, t_samp
 
     elif args.mode == "OLLQR":
         # compute stimulus beforehand using model fit
@@ -171,7 +173,7 @@ def config_processor(args, sim, n_opto, path):
             sys2sim.Simulate(sim.u[t])
 
         def my_process(state, t_samp):
-            opto_val = sim.u[int(t_samp / ms)]
+            opto_val = sim.u[int(t_samp / ms)] * mwatt / mm2
             return {"fibers": opto_val}, t_samp
 
     elif args.mode == "fit":
@@ -191,7 +193,7 @@ def config_processor(args, sim, n_opto, path):
         sim.u = on_off[:n_tot] * u_rand
 
         def my_process(state, t_samp):
-            opto_val = sim.u[int(t_samp / ms)]
+            opto_val = sim.u[int(t_samp / ms)] * mwatt / mm2
             return {"fibers": opto_val}, t_samp
 
     elif args.mode == "LQR":
@@ -208,155 +210,86 @@ def config_processor(args, sim, n_opto, path):
             lfp2 = lfp_uV[144:288].mean()
             # assuming regular samples, can us t_ms directly as index
             sim.ctrlr.y_ref = sim.ref[int(t_samp / ms)]
-            opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0]
-            return {"fibers": opto_val}, t_samp + 3
+            opto_val = sim.ctrlr.ControlOutputReference(lfp2 - lfp1)[0, 0] * mwatt / mm2
+            return {"fibers": opto_val}, t_samp + 3 * ms
+
     elif args.mode == "MPC":
-        # from juliacall import main as jl
-        import juliacall
-
-        jl = juliacall.newmodule("some_name")
-
         # load model
         fit = dict(np.load(args.fit))
         # initial state and estimate uncertainty
-        sim.x_est = np.array([0, 0, 0, 0])
         sim.P = fit["P0"]
         # don't know why this needs to be a float
+        sim.Q = fit["Q"]
         sim.R = fit["R"].flatten()[0]
         sim.A = fit["A"]
         sim.B = fit["B"]
         sim.C = fit["C"]
-
+        n_x = sim.A.shape[0]
+        sim.x_est = np.zeros(n_x)  # initial state estimate
         sim.ref = ref
-
         sim.optimal_u = 0.0
 
-        # load julia modules
-        jl.include("md_kf.jl")
-        jl.include("mpc_called.jl")
+        # implement using cvxpy
+        horizon = 50
+        # pad reference so horizon doesn't go out of bounds
+        sim.ref = np.pad(sim.ref, (0, horizon), mode="edge")
+        sim.uopt = cp.Variable((1, horizon), nonneg=True)
+        sim.xopt = cp.Variable((n_x, horizon + 1))  # x traj including initial state
+        # initialize with zeros
+        sim.uopt.value = np.zeros((1, horizon))
+        sim.xopt.value = np.zeros((n_x, horizon + 1))
 
-        sample = 3
-
-        def my_process(state, t_samp):
-            # sim.io_processor.sampling_period_ms = 3
-            # get measurement
-            lfp_uV = state["Probe"]["lfp"]
-            lfp1 = lfp_uV[:144].mean()
-            lfp2 = lfp_uV[144:288].mean()
-            print("\nLFP1/2: ", lfp1, "     2: ", lfp2, "\n")
-            # assuming regular samples, can us t_ms directly as index
-
-            if int(t_samp / ms) % sample == 0:
-                # call controller
-                mpc_result = jl.flex_mpc(
-                    jl.Array(sim.x_est),
-                    jl.Array(sim.ref),
-                    nu=1,
-                    sample=sample,
-                    A=jl.Array(sim.A),
-                    B=jl.Array(sim.B),
-                    C=jl.Array(sim.C),
-                    ref_type=2,
-                )
-                print("\nmpc_res: ", mpc_result, "\n")
-                sim.optimal_u = mpc_result[0]
-                sim.ref = sim.ref[sample:]
-
-            sim.z = np.array([lfp2 - lfp1])
-            print("\nz:", sim.z, "\n")
-            # use kalman filter
-            sim.x_est, sim.P = jl.KF_est(
-                jl.Array(sim.z),
-                jl.Array(sim.P),
-                sim.R,
-                jl.Array(sim.x_est),
-                sim.optimal_u,
-                A=jl.Array(sim.A),
-                B=jl.Array(sim.B),
-                C=jl.Array(sim.C),
-            )
-
-            return {"fibers": sim.optimal_u}, t_samp + 6 * ms
-    elif args.mode == "OLMPC":
-        # from juliacall import main as jl
-        import juliacall
-
-        jl = juliacall.newmodule("some_name")
-
-        # load model
-        fit = dict(np.load(args.fit))
-        # initial state and estimate uncertainty
-        sim.x_est = np.array([0, 0, 0, 0])
-        sim.P = fit["P0"]
-        sim.R = 1.86236633e-07  # fit['R'] - fix later
-        sim.R = fit["R"]
-        sim.A = fit["A"]
-        sim.B = fit["B"]
-        sim.C = fit["C"]
-
-        sim.ref = ref
-
-        # sim.optimal_u = 0.0
-
-        # load julia modules
-        jl.include("md_kf.jl")
-        jl.include("mpc_called.jl")
-
-        sample = 3  # attaching to sim so no scope issues
-
-        # get set of optimal inputs to use in the simulation
-        optimal_us_vec = jl.open_loop_mpc(
-            jl.Array(sim.x_est),
-            jl.Array(sim.ref),
-            nu=1,
-            sample=sample,
-            A=jl.Array(sim.A),
-            B=jl.Array(sim.B),
-            C=jl.Array(sim.C),
-            ref_type=2,
+        sim.yopt = sim.C @ sim.xopt[:, 1:]  # predicted output for horizon
+        sim.x0opt = cp.Parameter(n_x)  # initial state
+        sim.yrefopt = cp.Parameter((1, horizon))
+        cost = cp.sum_squares(sim.yopt - sim.yrefopt) + (
+            args.r * cp.sum_squares(sim.uopt)
         )
-        optimal_us_vec = [elem for elem in optimal_us_vec]
-
-        # pad inputs with a few at the end since due to reference and
-        for i in range(sample + 1):
-            optimal_us_vec.append(optimal_us_vec[-1])
-
-        print("\nus vector:  ", optimal_us_vec, "\n")
+        constraints = [
+            sim.xopt[:, 0] == sim.x0opt,  # initial state
+            # system dynamics
+            sim.xopt[:, 1:] == sim.A @ sim.xopt[:, :-1] + sim.B @ sim.uopt,
+            sim.uopt <= args.maxIrr0,  # input constraints
+        ]
+        sim.prob = cp.Problem(cp.Minimize(cost), constraints)
+        print("MPC problem is DCP?", sim.prob.is_dcp(dpp=False))
+        print("MPC problem is DPP?", sim.prob.is_dcp(dpp=True))
+        sim.solve_times = []
 
         def my_process(state, t_samp):
-            # sim.io_processor.sampling_period_ms = 3
             # get measurement
-            lfp_uV = state["Probe"]["lfp"]
+            lfp_uV = state["Probe"]["lfp"] / uvolt
             lfp1 = lfp_uV[:144].mean()
             lfp2 = lfp_uV[144:288].mean()
-            print("\nLFP1/2: ", lfp1, "     2: ", lfp2, "\n")
+            y = lfp2 - lfp1
+
+            # kalman filter to get xhat_t|t
+            P_pred = sim.A @ sim.P @ sim.A.T + sim.Q
+            K = P_pred @ sim.C.T @ np.linalg.inv(sim.C @ P_pred @ sim.C.T + sim.R)
+            x_pred = sim.xopt[:, 1].value
+            y_err = y - sim.C @ x_pred
+            # updated state and covariance estimates
+            sim.x0opt.value = x_pred + K @ y_err
+            sim.P = (np.eye(n_x) - K @ sim.C) @ P_pred
+
             # assuming regular samples, can us t_ms directly as index
-
-            if int(t_samp / ms) % sample == 0:
-                # "call" controller
-                mpc_result = optimal_us_vec[
-                    0
-                ]  # [( int(t_ms)/sample )] #indexing not sufficient if multiple trials?
-                optimal_us_vec.pop(0)  # remove first input since it's been used
-                print("\nmpc_res: ", mpc_result, "\n")
-                sim.optimal_u = mpc_result  # [0]
-                # sim.ref = sim.ref[sample:]
-
-            sim.z = np.array([lfp2 - lfp1])
-            print("\nz:", sim.z, "\n")
-            # use kalman filter
-            sim.x_est, sim.P = jl.KF_est(
-                jl.Array(sim.z),
-                jl.Array(sim.P),
-                sim.R,
-                jl.Array(sim.x_est),
-                sim.optimal_u,
-                A=jl.Array(sim.A),
-                B=jl.Array(sim.B),
-                C=jl.Array(sim.C),
+            t_index = int(t_samp / ms)
+            # ref from t+1 to t+horizon (since y at current step can't be helped)
+            sim.yrefopt.value = sim.ref[t_index + 1 : t_index + 1 + horizon].reshape(
+                (1, horizon)
             )
 
-            return {"fibers": sim.optimal_u}, t_samp
+            sim.prob.solve(warm_start=True)
+            sim.solve_times.append(sim.prob.solver_stats.solve_time)
+
+            # want to use uopt[:, 0] but Cleo v0.18.1 doesn't broadcast unless scalar
+            return {"fibers": sim.uopt[0, 0].value * mwatt / mm2}, t_samp + 6 * ms
+    elif args.mode == "OLMPC":
+        raise NotImplementedError(
+            "This was done previously with the Julia setup, not yet with cvxpy. "
+            "The idea is running MPC over the whole trial with no feedback---"
+            "the steel-manned version of OL control."
+        )
 
     # need to subclass so it's concrete
     class MyLIOP(cleo.ioproc.LatencyIOProcessor):
@@ -464,10 +397,8 @@ def save_input(path, fibers: cleo.light.Light):
         return
     fname = os.path.join(path, "input.npz")
     npzfile = np.load(fname)
-    Irr0_mW_per_mm2 = np.array(fibers.values)
-    np.savez_compressed(
-        fname, Irr0_mW_per_mm2=Irr0_mW_per_mm2, t_opto_ms=fibers.t_ms / ms, **npzfile
-    )
+    Irr0 = fibers.irradiance_[:, 0]  # just get one channel, since they're identical
+    np.savez_compressed(fname, Irr0_mW_per_mm2=Irr0, t_opto_ms=fibers.t / ms, **npzfile)
 
 
 # %%
@@ -670,6 +601,8 @@ if __name__ == "__main__":
     # parser.add_argument("--out_dir", required=True, help="Output directory with trained model")
 
     args = parser.parse_args()
+    if not args.show_plots:
+        matplotlib.use("Agg")
     args.maxIrr0 = max(args.maxIrr0, args.Irr0_OL)
     if args.ref:
         ref = np.load(args.ref)
@@ -680,7 +613,11 @@ if __name__ == "__main__":
         args.runtime = 0.01
         args.no_save = True
 
-    with plt.style.context(["seaborn-v0_8-paper"]):
+    cleo.utilities.style_plots_for_paper()
+    try:
         main(args)
+    finally:
+        print("shutting down virtual display")
+        display.stop()
 
 # %%

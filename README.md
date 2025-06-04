@@ -18,7 +18,7 @@ If you have problems installing from the `environment.yml` file, try this instea
 ```bash
 mamba create -n hipp2 python=3.10
 mamba install numpy scipy
-pip install cleosim==0.18.1
+pip install cleosim==0.18.1 seaborn pyvirtualdisplay cvxpy
 ```
 
 Then install the model files as a package:
@@ -27,7 +27,6 @@ pip install -e ./aussel_model
 ```
 
 To run LQR control, you'll need [`ldsctrlest` Python bindings](https://cloctools.github.io/lds-ctrl-est/docs/getting-started/getting-started/#python-bindings-package-ldsctrlest).
-To run MPC, you'll need [Julia](https://julialang.org) with [`JuMP`](https://jump.dev)`@1.4.0` and [`OSQP`](https://osqp.org/docs/interfaces/julia.html)`@0.8.0` packages installed.
 
 ## Running experiments
 

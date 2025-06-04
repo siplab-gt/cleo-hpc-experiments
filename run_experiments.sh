@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# fail on error
+set -e
+
 # =========================================================
 # The experiment is to try to evoke ripples from 100 to 300
 # ms. The original model can do this with endogenous inputs.

@@ -7,7 +7,7 @@ import numpy as np
 
 cleo.utilities.style_plots_for_paper()
 # %%
-fig = plt.figure(constrained_layout=False, figsize=(4, 4))
+fig = plt.figure(figsize=(3.6, 3.6))
 subfigs = fig.subfigures(3, 1)
 axs = []
 for i, (folder, title) in enumerate(
@@ -80,8 +80,8 @@ for i, (folder, title) in enumerate(
 axs[0][1].legend(handles=[line_ref, line_meas], loc="lower right")
 
 ax2.tick_params("x", bottom=True, labelbottom=True)
-ax2.set(xlabel="Time (ms)")
-fig.savefig("results/sim-results.svg", bbox_inches="tight", transparent=True)
+ax2.set(xlabel="time (ms)")
+fig.savefig("results/sim-results.svg")
 
 # %%
 # comparing TKLFP and RWSLFP
