@@ -24,13 +24,18 @@ def main(args):
         # inexplicably, we have some missed samples
         # maybe dt was occasionally just a little off, so t % dt != 0?
         # or a hiccup in calling the network operation?
-        # we can either skip these 2 ms samples, divide the data into 
+        # we can either skip these 2 ms samples, divide the data into
         # segments, or interpolate
         # I'll divide into segments
-        u_opto = u_opto.reshape((1, -1))
-        t_ms = in_npz["t_opto_ms"]
+        # 2025-06-03: I think I fixed the skipped samples problem a while ago,
+        # but will leave this code just in case
+
+        # trim off first value (starting value at t=0)
+        u_opto = u_opto[1:].reshape((1, -1))
+        t_ms = in_npz["t_opto_ms"][1:]
         assert np.all(np.diff(t_ms) < 3)
         t_ms_tklfp = np.load(results_dir / "t_ms_tklfp.npy")
+        # slight difference from first (0) sample?
         assert np.all(t_ms == t_ms_tklfp)
         z_tklfp = np.load(results_dir / "tklfp.npy")
         z_tklfp = z_tklfp.reshape((1, -1))
@@ -43,7 +48,7 @@ def main(args):
             i_skip_prev = i_skip + 1
         u.append(u_opto[:, i_skip_prev:])
         z.append(z_tklfp[:, i_skip_prev:])
-        print(f'Found {len(u)} segments in {results_dir}')
+        print(f"Found {len(u)} segments in {results_dir}")
         u = [u_opto]
         z = [z_tklfp]
     if args.dry_run:
@@ -80,7 +85,7 @@ def main(args):
             tol,
         )
         stop = time.perf_counter()
-        print(f"Finished EM fit in {(stop-start)*1000} ms.")
+        print(f"Finished EM fit in {(stop - start) * 1000} ms.")
 
     n_samp_imp = int(np.ceil(0.1 / dt))
     t_imp = np.arange(0, n_samp_imp * dt, dt)

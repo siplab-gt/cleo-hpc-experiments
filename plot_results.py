@@ -1,6 +1,7 @@
 #!python
 import os
 import sys
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,10 +21,17 @@ def plot_lfp(path):
     if os.path.exists(ref_fname):
         plt.legend(["reference", "measured"])
 
-    fig, ax = plt.subplots()
-    rwslfp = np.load(os.path.join(path, "rwslfp.npy"))
-    ax.plot(rwslfp, c="black")
-    ax.set(title="RWSLFP", ylabel="a.u.", xlabel="ms")
+    # for wslfp types (rwslfp, sclfp)
+    for lfp_type in ['rwslfp', 'sclfp']:
+        lfp_path = os.path.join(path, f'{lfp_type}.npy')
+        if not os.path.exists(lfp_path):
+            warn(f"lfp type {lfp_type} not present")
+            continue
+        fig, ax = plt.subplots()
+        lfp = np.load(lfp_path)
+        ax.plot(lfp, c="black")
+        ax.set(title=lfp_type.upper(), ylabel="a.u.", xlabel="ms")
+
 
 
 def plot_input(path):

@@ -321,11 +321,12 @@ def run_process(myNetwork, all_neuron_groups, elec_pos, runtime, plot_raster,typ
         if plot_raster :
             for j in range(4):
                 for i in range(len(all_spike_E_monitors[j])):
-                    all_rasters_i_exc[j][i].append(all_spike_E_monitors[j][i].i)
-                    all_rasters_t_exc[j][i].append(all_spike_E_monitors[j][i].t)
+                    # KAJ: store in copied arrays to avoid problems with VariableView
+                    all_rasters_i_exc[j][i].append(Quantity(all_spike_E_monitors[j][i].i))
+                    all_rasters_t_exc[j][i].append(Quantity(all_spike_E_monitors[j][i].t))
                 for i in range(len(all_spike_I_monitors[i])):
-                    all_rasters_i_inh[j][i].append(all_spike_I_monitors[j][i].i)
-                    all_rasters_t_inh[j][i].append(all_spike_I_monitors[j][i].t)
+                    all_rasters_i_inh[j][i].append(Quantity(all_spike_I_monitors[j][i].i))
+                    all_rasters_t_inh[j][i].append(Quantity(all_spike_I_monitors[j][i].t))
        
 
         ###Calcul du LFP

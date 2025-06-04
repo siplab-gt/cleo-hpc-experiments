@@ -7,7 +7,7 @@ import numpy as np
 
 cleo.utilities.style_plots_for_paper()
 # %%
-fig = plt.figure(constrained_layout=False, figsize=(4, 4))
+fig = plt.figure(figsize=(3.6, 3.6))
 subfigs = fig.subfigures(3, 1)
 axs = []
 for i, (folder, title) in enumerate(
@@ -80,17 +80,19 @@ for i, (folder, title) in enumerate(
 axs[0][1].legend(handles=[line_ref, line_meas], loc="lower right")
 
 ax2.tick_params("x", bottom=True, labelbottom=True)
-ax2.set(xlabel="Time (ms)")
-fig.savefig("results/sim-results.svg", bbox_inches="tight", transparent=True)
+ax2.set(xlabel="time (ms)")
+fig.savefig("results/sim-results.svg")
 
 # %%
 # comparing TKLFP and RWSLFP
 import seaborn as sns
 
+sns.set_context("paper", font_scale=5 / 6)
+
 from aussel_model.model.single_process3 import lecture
 
 fig, (ax1, ax2, ax3) = plt.subplots(
-    3, 1, sharex=True, figsize=(6.5, 6), layout="constrained"
+    3, 1, sharex=True, figsize=(6.25, 5), layout="constrained"
 )
 ssclfp = -np.array(lecture("orig_results/LFP.txt")).flatten() * 1e6
 t_ssclfp = np.linspace(0, 400, len(ssclfp), endpoint=False)
@@ -116,5 +118,6 @@ ax3.set(
     yticks=[],
 )
 sns.despine(fig)
-fig.savefig("results/rws_tk_lfp.pdf")
+# fig.savefig("results/rws_tk_lfp.pdf")
+fig.savefig("results/rws_tk_lfp.svg")
 # %%
